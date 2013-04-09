@@ -1,0 +1,13 @@
+@(flightForm: Form[(String, JodaDateTime)])
+
+@import helper.twitterBootstrap._
+
+@helper.form(action = routes.Flights.handleFlightForm) {
+
+  @helper.inputText(flightForm("flightNumber"))
+
+  @helper.input(flightForm("date")) { (id, name, value, args) =>
+    <input type="date" name="@name" id="@id" @toHtmlArgs(args) />
+  }
+
+}

@@ -1,0 +1,24 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Home page
+GET     /                                               controllers.Application.index
+
+POST    /flight                                         controllers.Flights.handleFlightForm
+
+GET     /$flightNumber<[A-Z]{3}[0-9]{1,4}>/:date        controllers.Flights.find(flightNumber: String, date: JodaDateTime)
+
+GET     /:airline/:dest/:orig/:date                     controllers.Flights.findByRoute(airline: Airline, dest: Airport, orig: Airport, date: JodaDateTime)
+
+GET     /$flightNumber<[A-Z]{3}[0-9]{1,4}>/:date/:faFlightID controllers.Flights.map(flightNumber: String, date: JodaDateTime, faFlightID: String)
+
+#GET     /flight/search                                  controllers.Flights.search(flight: ScheduledFlight)
+
+
+# Map static resources from the /public folder to the /assets URL path
+GET     /assets/*file               controllers.Assets.at(path="/public", file)
+
+# Map static resources from WebJars
+GET     /webjars/*file                    controllers.WebJarAssets.at(file)
+

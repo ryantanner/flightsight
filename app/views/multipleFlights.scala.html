@@ -1,0 +1,37 @@
+@(flights: List[Flight])
+
+@main("Multiple Flights Found") {
+
+  <table class="table">
+
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Origin</th>
+        <th>Destination</th>
+        <th>Scheduled Depature Time</th>
+        <th>Scheduled Arrival Time</th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      
+      @flights.zipWithIndex.map { case (flight, index) =>
+        <tr>
+          <td>@index</td>
+          <td>@flight.originCity</td>
+          <td>@flight.destinationCity</td>
+          <td>@flight.filedDepartureTime</td>
+          <td>@flight.filedTime</td>
+          <td><a class="btn"
+                 href="@routes.Flights.map(flight.ident, flight.filedDepartureTime, flight.faFlightId)">Select</a></td>
+        </tr>
+      }
+
+    </tbody>
+
+
+  </table>
+
+}

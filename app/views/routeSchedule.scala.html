@@ -1,0 +1,38 @@
+@(flights: List[ScheduledFlight], airline: Airline, origin: Airport, destination: Airport, departureDate: JodaDateTime)
+
+@main(s"Scheduled Flights between ${origin.city} and ${destination.city}") {
+
+  <table class="table">
+
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Origin</th>
+        <th>Destination</th>
+        <th>Scheduled Depature Time</th>
+        <th>Scheduled Arrival Time</th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      
+      @flights.map { flight =>
+        <tr>
+          <td>@flight.ident</td>
+          <td>@flight.origin.city</td>
+          <td>@flight.destination.city</td>
+          <td>@flight.departureTime</td>
+          <td>@flight.arrivalTime</td>
+          <td><a class="btn"
+                 href="routes.Flights.search(flight)">Select</a></td>
+        </tr>
+      }
+
+    </tbody>
+
+
+  </table>
+  
+
+}
