@@ -1,7 +1,17 @@
-.hero-unit img.hero-full-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 100%;
+body {
+  background: url('../images/airplane_bg.jpg') no-repeat;
+}
+
+.jumbotron {
   height: 500px;
 }
+
+.flight-selection {
+  background-color: rgba(225,225,225,0.5);
+  height: 350px;
+}
+
+.multiple-flights {
+  background-color: rgba(225,225,225,0.5);
+}
+

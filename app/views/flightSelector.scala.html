@@ -1,13 +1,22 @@
-@(flightForm: Form[(String, JodaDateTime)])
+@(flightForm: Form[(String, Int, JodaDateTime)])
 
 @import helper.twitterBootstrap._
 
-@helper.form(action = routes.Flights.handleFlightForm) {
+@helper.form(action = routes.Flights.handleFlightForm, 'class -> "flight-selection span4 well") {
+
+  @helper.inputText(flightForm("airline"))
 
   @helper.inputText(flightForm("flightNumber"))
 
-  @helper.input(flightForm("date")) { (id, name, value, args) =>
-    <input type="date" name="@name" id="@id" @toHtmlArgs(args) />
-  }
+  @helper.inputDate(flightForm("date"), 'id -> "datePicker")
+
+  <button type="submit" class="btn">Take to the Skies!</button>
 
 }
+
+<script type="text/javascript">
+
+
+<form class="flight-selection span4 offset2 well">
+
+</div>

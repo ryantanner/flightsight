@@ -45,8 +45,6 @@ object FlightAware {
 
   }
 
-
-
   val endpoint = "http://flightxml.flightaware.com/json/FlightXML2/"
 
   implicit val flightReads = (
@@ -83,9 +81,9 @@ object FlightAware {
   )(ScheduledFlight)
 
 
-  def findByFlightNumber(flightNumber: String, departureDate: JodaDateTime): Future[List[Flight]] = {
+  def findByFlightNumber(airline: Airline, flightNumber: Int, departureDate: JodaDateTime): Future[List[Flight]] = {
     val params = List(
-      ("ident", flightNumber),
+      ("ident", airline.code + flightNumber),
       ("howMany", "15"))
 
     def requestFlights(params: List[(String, String)], offset: Int = 0): Future[List[Flight]] = {
@@ -117,13 +115,13 @@ object FlightAware {
 
         Logger.debug("Flights found: " + flights.length)
         flights match {
-          case head :: tail if (tail.last.actualDepartureTime.getOrElse(new JodaDateTime()).isBefore(departureDate) && nextOffset > 0) =>
+          case head :: tail if ((head :: tail).count(f => f.actualDepartureTime.getOrElse(new JodaDateTime()).isBefore(departureDate)) == 0 && nextOffset > 0) =>
             Logger.debug("All flights before given departure, moving to next offset")
             requestFlights(params, nextOffset)
           case head :: tail =>
             Logger.debug("Flights after given departure")
             Logger.debug(departureDate.toLocalDate.toString)
-            Logger.debug(tail(1).actualDepartureTime.toString)
+            Logger.debug(head.actualDepartureTime.toString)
             future { (head :: tail).filter(f => f.actualDepartureTime.getOrElse(new JodaDateTime()).toLocalDate.equals(departureDate.toLocalDate)) }
           case Nil => future { Nil }
         }

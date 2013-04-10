@@ -1,8 +1,12 @@
-@(flights: List[Flight])
+@(flights: List[Flight], airline: Airline, departureDate: JodaDateTime)
 
 @main("Multiple Flights Found") {
 
-  <table class="table">
+  <h2>Multiple Flights Found</h2>
+
+  <p>Multiple flights found for @airline.name flight @flights.head.ident on @departureDate.toLocalDate</p>
+
+  <table class="table multiple-flights">
 
     <thead>
       <tr>

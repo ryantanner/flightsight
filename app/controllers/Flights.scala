@@ -19,29 +19,42 @@ object Flights {
 
   val flightForm = Form(
     tuple(
-      "flightNumber" -> text.verifying(nonEmpty),
+      "airline"      -> text,
+      "flightNumber" -> number.verifying(min(0)),
       "date"         -> jodaDate
-    )
+    ) verifying("Invalid airline", fields => fields match {
+      case (a,f,d) => Airline.findByICAO(a).isDefined
+    })
   )
 
   def handleFlightForm = Action { implicit request =>
     flightForm.bindFromRequest.fold(
       formWithErrors => BadRequest(views.html.flightSelector(formWithErrors)),
-      value => Redirect(routes.Flights.find(value._1, value._2))
+      value => Redirect(routes.Flights.find(Airline.findByICAO(value._1).get, value._2, value._3))
     )
   }
 
-  def find(flightNumber: String, departureDate: DateTime) = Action {
-    val futureOfFlights = FlightAware.findByFlightNumber(flightNumber, departureDate)
+  def find(airline: Airline, flightNumber: Int, departureDate: DateTime) = Action {
+    val futureOfFlights = FlightAware.findByFlightNumber(airline, flightNumber, departureDate)
     Async {
       futureOfFlights map { flights =>
         flights match {
           case flight :: Nil => Ok(views.html.map(flight))
-          case head :: tail  => Ok(views.html.multipleFlights(head :: tail))
-          case Nil           => Ok(views.html.flightNotFound(flightNumber, departureDate))
+          case head :: tail  => Ok(views.html.multipleFlights(head :: tail, airline, departureDate))
+          case Nil           => Ok(views.html.flightNotFound(airline, flightNumber, departureDate))
         }
       }
     }
+  }
+
+  def listAirlines = Action {
+    val airlines = Airline.all
+    val json = Json.obj(
+      "airlines" -> Json.arr(
+        airlines.map(a => Json.obj("name" -> a.name, "icao" -> a.code))
+      )
+    )
+    Ok(json)
   }
 
   // Searches for a unique Flight from a ScheduledFlight
@@ -52,7 +65,7 @@ object Flights {
     Async {
       futureOfScheduledFlights map { flights =>
         flights match {
-          case flight :: Nil => Redirect(routes.Flights.find(flight.ident, flight.departureTime))
+          case flight :: Nil => Redirect(routes.Flights.find(airline, flight.ident.filter(_.isDigit).toInt, flight.departureTime))
           case head :: tail => Ok(views.html.routeSchedule(head :: tail, airline, origin, destination, departureDate))
         }
       }

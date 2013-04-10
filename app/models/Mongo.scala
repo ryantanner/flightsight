@@ -1,12 +1,18 @@
 package models
 
+import play.api.Play.current
+
+import play.modules.reactivemongo._
+import play.modules.reactivemongo.json.collection.JSONCollection
+
 import reactivemongo.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-trait Mongo {
+trait Mongo extends MongoController {
 
-  private val connection = MongoConnection(List("localhost:27017"))
-  private val db = connection("plugin")
-  implicit val collection = db("acoll")
+  val db = ReactiveMongoPlugin.db
+
+  implicit val airlineColl = db.collection[JSONCollection]("airlines")
+  implicit val airportColl = db.collection[JSONCollection]("airports")
 
 }

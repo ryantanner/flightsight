@@ -1,12 +1,8 @@
-@(flightForm: Form[(String, JodaDateTime)])
+@(flightForm: Form[(String, Int, JodaDateTime)])
 
 @main("FlightSight") {
-    
-  @navbar() 
 
-  <div class="hero-unit">
-
-    <img class="hero-full-bg" src="@routes.Assets.at("images/aire_bg.jpg")" />
+  <div class="container jumbotron">
 
     <h1>FlightSight</h1>
 

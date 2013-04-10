@@ -1,31 +1,44 @@
 package models
 
-import play.api.db._
 import play.api.Play.current
 import play.api.mvc.PathBindable
-
+import play.api.libs.json.Json
+import play.api.data._
 import play.api.Logger
 
-import scala.slick.driver.H2Driver.simple._
+import scala.concurrent.Future
 
-case class Airline(code: String, name: String, callsign: String, website: String)
+import org.joda.time.{DateTime => JodaDateTime}
 
-object Airline {
+import reactivemongo.api._
+import play.modules.reactivemongo._
+
+
+case class Airline(icao: String, 
+                   info: Option[AirlineInfo],
+                   creationDate: Option[JodaDateTime])
+
+case class AirlineInfo(icao: String,
+                       callsign: String,
+                       country: String,
+                       location: String,
+                       name: String,
+                       phone: String,
+                       shortname: String,
+                       url: String,
+                       creationDate: Option[JodaDateTime])
+
+object Airline extends Mongo {
   
-  def database = Database.forDataSource(DB.getDataSource())
+  implicit val airlineFormat = Json.format[Airline]
+  implicit val airlineInfoFormat = Json.format[AirlineInfo]
 
-  val AirlineTable = new Table[Airline]("airline_icao") {
-    def code = column[String]("code", O.PrimaryKey)
-    def name = column[String]("name")
-    def callsign = column[String]("callsign")
-    def website = column[String]("website")
-    def * = code ~ name ~ callsign ~ website <> (Airline.apply _, Airline.unapply _)
+  def findByICAO(icao: String): Future[Option[Airline]] = {
+    airlineColl.find(Json.obj("icao" -> icao)).headOption
   }
-  
-  Logger.debug(AirlineTable.ddl.createStatements.mkString("\n"))
 
-  def findByICAO(icao: String): Option[Airline] = database.withSession { implicit db: Session =>
-    Query(AirlineTable).filter(a => a.code === icao).firstOption
+  def all: Future[List[Airline]] = {
+    airlineColl.toList
   }
 
   implicit def pathBinder(implicit stringBinder: PathBindable[String]) = new PathBindable[Airline] {
@@ -33,12 +46,33 @@ object Airline {
     def bind(key: String, value: String): Either[String, Airline] = 
       for {
         icao <- stringBinder.bind(key, value).right
-        airline <- Airline.findByICAO(icao).toRight("Airline not found").right
+        airlineF <- findByICAO(icao).toRight("Future failed").right
+        airline  <- airlineF.toRight("Airline not found").right
       } yield airline
 
     def unbind(key: String, airline: Airline): String = 
       stringBinder.unbind(key, airline.code)
 
   }  
+
+  def importJson = {
+    import play.api.libs.json._
+    val data = io.Source.fromFile("AllAirlines").mkString("");
+    val json = Json.parse(data)
+    val airlineCodes = json \ "AllAirlinesResults" \ "data"
+
+    val airlines = airlineCodes map { c =>
+      val obj = Json.obj(
+        "icao" -> c,
+        "info" -> None,
+        "creationDate" -> JodaDateTime.now()
+      )
+      obj.as[Airline]
+    }
+
+    airlines.foreach(a => airlinesColl.insert(a))
+  }
+    
+
 
 }

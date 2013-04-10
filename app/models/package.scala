@@ -8,6 +8,7 @@ import scala.util.control.Exception.allCatch
 
 import org.joda.time.{DateTime => JodaDateTime}
 import org.joda.time.format.DateTimeFormat
+import org.joda.time.DateTimeZone
 
 object DateTime {
 
@@ -26,15 +27,24 @@ object DateTime {
 
   }
 
-  // FlightAware gives us seconds since epoch, we need to x1000 that so it's in milliseconds for Joda
-  implicit val SecondsJodaDateReads = new Reads[JodaDateTime] {
+  /**
+   * Reads for the `org.joda.time.DateTimeZone` type.
+   *
+   * @param pattern a long TimeZne id, as specified in `java.util.TimeZone`.
+   */
+  def jodaDateReads(tz: String): Reads[DateTimeZone] = new Reads[DateTimeZone] {
+    import org.joda.time.DateTimeZone
 
-    def reads(json: JsValue): JsResult[JodaDateTime] = json match {
-      case JsNumber(d) => JsSuccess(new JodaDateTime(d.toLong*1000))
-      case _           => JsError(Seq(JsPath() -> Seq(ValidationError("expected seconds"))))
+    def reads(json: JsValue): JsResult[DateTimeZone] = json match {
+      case JsString(s) => try {
+          val tzone = DateTimeZone.forID(s)
+          JsSuccess(tzone)
+        } catch {
+          case ex: IllegalArgumentException => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.jodadatetimezone.format"))))
+        }
+      case _ => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.date"))))
     }
 
   }
-
 
 }

@@ -7,11 +7,13 @@ GET     /                                               controllers.Application.
 
 POST    /flight                                         controllers.Flights.handleFlightForm
 
-GET     /$flightNumber<[A-Z]{3}[0-9]{1,4}>/:date        controllers.Flights.find(flightNumber: String, date: JodaDateTime)
+GET     /:airline/:flightNumber/:date                   controllers.Flights.find(airline: Airline, flightNumber: Int, date: JodaDateTime)
 
 GET     /:airline/:dest/:orig/:date                     controllers.Flights.findByRoute(airline: Airline, dest: Airport, orig: Airport, date: JodaDateTime)
 
 GET     /$flightNumber<[A-Z]{3}[0-9]{1,4}>/:date/:faFlightID controllers.Flights.map(flightNumber: String, date: JodaDateTime, faFlightID: String)
+
+GET     /airlines                                       controllers.Flights.listAirlines
 
 #GET     /flight/search                                  controllers.Flights.search(flight: ScheduledFlight)
 
