@@ -13,7 +13,7 @@ GET     /:airline/:dest/:orig/:date                     controllers.Flights.find
 
 GET     /$flightNumber<[A-Z]{3}[0-9]{1,4}>/:date/:faFlightID controllers.Flights.map(flightNumber: String, date: JodaDateTime, faFlightID: String)
 
-GET     /airlines                                       controllers.Flights.listAirlines
+GET     /airlines                                       controllers.Airlines.all
 
 #GET     /flight/search                                  controllers.Flights.search(flight: ScheduledFlight)
 

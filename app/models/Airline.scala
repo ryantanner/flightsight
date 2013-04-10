@@ -1,21 +1,21 @@
 package models
 
-import play.api.Play.current
+import play.api.libs.json._
 import play.api.mvc.PathBindable
-import play.api.libs.json.Json
-import play.api.data._
-import play.api.Logger
 
-import scala.concurrent.Future
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 import org.joda.time.{DateTime => JodaDateTime}
 
-import reactivemongo.api._
-import play.modules.reactivemongo._
+import scala.concurrent.Future
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
+import controllers.Airlines
 
 case class Airline(icao: String, 
-                   info: Option[AirlineInfo],
                    creationDate: Option[JodaDateTime])
 
 case class AirlineInfo(icao: String,
@@ -27,52 +27,40 @@ case class AirlineInfo(icao: String,
                        shortname: String,
                        url: String,
                        creationDate: Option[JodaDateTime])
+object Airline {
 
-object Airline extends Mongo {
-  
   implicit val airlineFormat = Json.format[Airline]
-  implicit val airlineInfoFormat = Json.format[AirlineInfo]
 
-  def findByICAO(icao: String): Future[Option[Airline]] = {
-    airlineColl.find(Json.obj("icao" -> icao)).headOption
-  }
-
-  def all: Future[List[Airline]] = {
-    airlineColl.toList
+  implicit class WithInfo(airline: Airline) {
+    def withInfo: Future[AirlineInfo] = {
+      // Get it from Mongo...
+      Airlines.info(airline).filter(_.isDefined).recoverWith[Option[AirlineInfo]] {
+        case e:NoSuchElementException => FlightAware.airlineInfo(airline).map(Some(_))
+      } collect {
+        case Some(airlineInfo) => airlineInfo
+      }
+    }
   }
 
   implicit def pathBinder(implicit stringBinder: PathBindable[String]) = new PathBindable[Airline] {
-    
+      
     def bind(key: String, value: String): Either[String, Airline] = 
+      // unfortunately we need to block as PathBinders must be synchronous
       for {
+        // bind the string
         icao <- stringBinder.bind(key, value).right
-        airlineF <- findByICAO(icao).toRight("Future failed").right
-        airline  <- airlineF.toRight("Airline not found").right
+        airline <- Await.result(Airlines.findByICAO(icao), 1 second).toRight("Future failed").right
       } yield airline
 
     def unbind(key: String, airline: Airline): String = 
-      stringBinder.unbind(key, airline.code)
+      stringBinder.unbind(key, airline.icao)
 
   }  
 
-  def importJson = {
-    import play.api.libs.json._
-    val data = io.Source.fromFile("AllAirlines").mkString("");
-    val json = Json.parse(data)
-    val airlineCodes = json \ "AllAirlinesResults" \ "data"
+}
 
-    val airlines = airlineCodes map { c =>
-      val obj = Json.obj(
-        "icao" -> c,
-        "info" -> None,
-        "creationDate" -> JodaDateTime.now()
-      )
-      obj.as[Airline]
-    }
+object AirlineInfo {
 
-    airlines.foreach(a => airlinesColl.insert(a))
-  }
-    
-
+  implicit val airlineInfoFormat = Json.format[AirlineInfo]
 
 }

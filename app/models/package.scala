@@ -8,7 +8,7 @@ import scala.util.control.Exception.allCatch
 
 import org.joda.time.{DateTime => JodaDateTime}
 import org.joda.time.format.DateTimeFormat
-import org.joda.time.DateTimeZone
+import org.joda.time.{DateTimeZone => JodaTimeZone}
 
 object DateTime {
 
@@ -27,24 +27,33 @@ object DateTime {
 
   }
 
+}
+
+object DateTimeZone {
+
   /**
    * Reads for the `org.joda.time.DateTimeZone` type.
    *
    * @param pattern a long TimeZne id, as specified in `java.util.TimeZone`.
    */
-  def jodaDateReads(tz: String): Reads[DateTimeZone] = new Reads[DateTimeZone] {
-    import org.joda.time.DateTimeZone
-
-    def reads(json: JsValue): JsResult[DateTimeZone] = json match {
+  def jodaTimeZoneReads: Reads[JodaTimeZone] = new Reads[JodaTimeZone] {
+    def reads(json: JsValue): JsResult[JodaTimeZone] = json match {
       case JsString(s) => try {
-          val tzone = DateTimeZone.forID(s)
+          val tzone = JodaTimeZone.forID(s.replace(":",""))
           JsSuccess(tzone)
         } catch {
           case ex: IllegalArgumentException => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.jodadatetimezone.format"))))
         }
       case _ => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.date"))))
     }
-
   }
+
+  def jodaTimeZoneWrites: Writes[JodaTimeZone] = new Writes[JodaTimeZone] {
+    def writes(tz: JodaTimeZone): JsValue = {
+      JsString(tz.getID)
+    }
+  }
+
+  implicit val jodaTimeZoneFormat: Format[JodaTimeZone] = Format(jodaTimeZoneReads, jodaTimeZoneWrites)
 
 }

@@ -1,16 +1,27 @@
 package models
 
+import play.api.mvc._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.data.validation.ValidationError
 import play.api.libs.ws._
 import play.api.Logger
 
+import reactivemongo.api._
+import reactivemongo.bson._
+import reactivemongo.bson.handlers.DefaultBSONHandlers._
+
+import play.modules.reactivemongo._
+import play.modules.reactivemongo.PlayBsonImplicits._
+
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.joda.time.{DateTime => JodaDateTime}
 import com.ning.http.client.Realm.AuthScheme
+
+import models.Airport._
+import models.AirportInfo._
 
 case class Flight(faFlightId: String, actualArrivalTime: Option[JodaDateTime], actualDepartureTime: Option[JodaDateTime], aircraftType: String,
                   destination: Airport, destinationCity: String, destinationName: String, diverted: String,
@@ -21,7 +32,9 @@ case class Flight(faFlightId: String, actualArrivalTime: Option[JodaDateTime], a
 case class ScheduledFlight(actualIdent: String, aircraftType: String, arrivalTime: JodaDateTime, departureTime: JodaDateTime,
                            destination: Airport, ident: String, origin: Airport)
 
-object FlightAware {
+object FlightAware extends Controller with MongoController {
+
+  def flights: JSONCollection = db.collection[JSONCollection]("flights")
 
   // FlightAware gives us seconds since epoch, we need to x1000 that so it's in milliseconds for Joda
   // If a flight is in the future, actual times are 0 so we'll store a None
@@ -29,7 +42,7 @@ object FlightAware {
 
     def reads(json: JsValue): JsResult[Option[JodaDateTime]] = json match {
       case JsNumber(d) if (d > 0) => JsSuccess(Some(new JodaDateTime(d.toLong*1000)))
-      case JsNumber(d) if (d == 0) => JsSuccess(None)
+      case JsNumber(d) if (d <= 0) => JsSuccess(None)
       case _           => JsError(Seq(JsPath() -> Seq(ValidationError("expected seconds"))))
     }
 
@@ -83,7 +96,7 @@ object FlightAware {
 
   def findByFlightNumber(airline: Airline, flightNumber: Int, departureDate: JodaDateTime): Future[List[Flight]] = {
     val params = List(
-      ("ident", airline.code + flightNumber),
+      ("ident", airline.icao + flightNumber),
       ("howMany", "15"))
 
     def requestFlights(params: List[(String, String)], offset: Int = 0): Future[List[Flight]] = {
@@ -140,7 +153,7 @@ object FlightAware {
       ("endDate", departureDate.getMillis.toString), // get epoch of 23:59 of departureDate
       ("origin", origin.icao),
       ("destination", destination.icao),
-      ("airline", airline.code),
+      ("airline", airline.icao),
       ("howMany", "15"),
       ("offset", "0"))
 
@@ -158,6 +171,34 @@ object FlightAware {
           flights => flights
         )
       }
+  }
+
+  def airportInfo(airport: Airport): Future[AirportInfo] = {
+    val params = List(("airportCode", airport.icao))
+
+    wsAuth(endpoint + "AirportInfo")
+    .withQueryString(params:_*)
+    .get.map { response =>
+      Logger.debug(response.body)
+
+      (response.json \ "AirportInfoResult" \ "data").as[AirportInfo]
+    } recoverWith {
+      case t:Throwable => Future.failed(t)
+    }
+  }
+
+  def airlineInfo(airline: Airline): Future[AirlineInfo] = {
+    val params = List(("airlineCode", airline.icao))
+
+    wsAuth(endpoint + "AirlineInfo")
+    .withQueryString(params:_*)
+    .get.map { response =>
+      Logger.debug(response.body)
+
+      (response.json \ "AirlineInfoResult" \ "data").as[AirlineInfo]
+    } recoverWith {
+      case t:Throwable => Future.failed(t)
+    }
   }
 
   def wsAuth(url: String): WS.WSRequestHolder = {
