@@ -14,7 +14,7 @@ import play.api.Logger
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 
 import org.joda.time.{DateTime => JodaDateTime}
 
@@ -93,7 +93,7 @@ object Airline {
   }
 
   def insertAirlineInfo(airlineInfo: AirlineInfo) = {
-    Logger.info("Inserting ${airlineInfo.icao} to mongo")
+    Logger.info(s"Inserting ${airlineInfo.icao} to mongo")
     airlineInfos.insert(airlineInfo)
   }
 

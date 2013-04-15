@@ -19,7 +19,7 @@ import play.modules.reactivemongo.json.collection._
 import play.modules.reactivemongo.json.BSONFormats._
 
 import scala.concurrent._
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 
 import org.joda.time.{DateTime => JodaDateTime}
 import com.ning.http.client.Realm.AuthScheme
@@ -38,7 +38,7 @@ object FlightAware {
 
  val endpoint = "http://flightxml.flightaware.com/json/FlightXML2/"
 
-  def findByFlightNumber(airline: Airline, flightNumber: Int, departureDate: JodaDateTime): Future[List[Flight]] = {
+  def findByFlightNumber(airline: Airline, flightNumber: Int, departureDate: JodaDateTime, airports: Option[(Airport, Airport)] = None): Future[List[Flight]] = {
     Logger.debug(s"Requesting flights by number for ${airline.icao} $flightNumber on ${departureDate.toLocalDate.toString}")
     val params = List(
       ("ident", airline.icao + flightNumber),
@@ -53,24 +53,30 @@ object FlightAware {
         .get
 
       val futureFlights = request map { response => 
-        val data = response.json \ "FlightInfoExResult"
+        // Check that response doesn't contain an error
+        (response.json \ "error").asOpt[String] match {
+          case Some(error) => (Nil, -1)
+          case None => {
+            val data = response.json \ "FlightInfoExResult"
 
-        val addFields = (__).json.update(
-          addMongoId andThen
-          addCreationDate
-        )
+            val addFields = (__).json.update(
+              addMongoId andThen
+              addCreationDate
+            )
 
-        val flights = for {
-          array <- (data \ "flights").transform(readJsArrayMap(addFields))
-          flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
-        } yield flights 
+            val flights = for {
+              array <- (data \ "flights").transform(readJsArrayMap(addFields))
+              flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
+            } yield flights 
 
-        val nextOffset = (data \ "next_offset").as[Int]
+            val nextOffset = (data \ "next_offset").as[Int]
 
-        flights fold (
-          error => throw new Exception(error.mkString("\n")),
-          success => (success, nextOffset)
-        ) 
+            flights fold (
+              error => throw new Exception(error.mkString("\n")),
+              success => (success, nextOffset)
+            ) 
+          }
+        }
       }
 
       futureFlights flatMap { case (flights, nextOffset) =>
@@ -85,9 +91,16 @@ object FlightAware {
            .isBefore(departureDate.toLocalDate)
         }
 
-        val flightsOnDepartureDate = flights filter { f =>
-          f.filedDepartureTime.toLocalDate
-           .equals(departureDate.toLocalDate)
+        val flightsOnDepartureDate = airports match {
+          case None => flights filter { f =>
+            f.filedDepartureTime.toLocalDate
+             .equals(departureDate.toLocalDate)
+          }
+          case Some((orig, dest)) => flights filter { f =>
+            f.filedDepartureTime.toLocalDate.equals(departureDate.toLocalDate) &&
+            f.origin == orig.icao &&
+            f.destination == dest.icao
+          }
         }
 
         val flightsAfterDepartureDate = flights filter { f =>

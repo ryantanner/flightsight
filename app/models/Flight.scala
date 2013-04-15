@@ -19,7 +19,7 @@ import org.joda.time.Period
 import scala.concurrent.Future
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 
 import reactivemongo.api._
 import reactivemongo.bson._
@@ -173,6 +173,25 @@ object Flight {
       }
     }
   }
+
+  def findByNumberOriginDestination(airline: Airline, flightNumber: Int, origin: Airport, destination: Airport, departureTime: JodaDateTime): Future[Option[Flight]] = {
+    val startDate = departureTime.withTime(0, 0, 0, 0)
+    val endDate = departureTime.withTime(23, 59, 59, 999)
+
+    flightsColl.find(Json.obj(
+      "ident" -> JsString(airline.icao + flightNumber),
+      "filedDepartureTime" -> Json.obj(
+        "$gte" -> startDate.getMillis(),
+        "$lt"  -> endDate.getMillis()
+      ),
+      "destination" -> destination.icao,
+      "origin" -> origin.icao
+    )).cursor[Flight].headOption flatMap { maybeFlight => maybeFlight match {
+      case Some(flight) => Future.successful(Some(flight))
+      case None         => FlightAware.findByFlightNumber(airline, flightNumber, departureTime, Some((origin, destination))).map(_.headOption)
+    }}
+  }
+      
 
   def insert(flights: Seq[Flight]) = {
     Logger.info(s"Inserting ${flights.size} flights to mongo")

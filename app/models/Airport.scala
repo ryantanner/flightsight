@@ -12,7 +12,7 @@ import org.joda.time.{DateTimeZone => JodaTimeZone, DateTime => JodaDateTime}
 import scala.concurrent.Future
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 import scala.language.implicitConversions
 
 // Reactive Mongo imports

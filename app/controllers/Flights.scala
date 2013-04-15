@@ -12,7 +12,7 @@ import play.api.libs.iteratee._
 import play.api.Logger
 
 import scala.concurrent._
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
@@ -51,6 +51,7 @@ object Flights extends Controller {
   }
 
   def findByFlightNumber(airlineCode: String, flightNumber: Int, departureDate: JodaDateTime) = Action {
+    Logger.info(s"Finding flight by number for ${airlineCode} ${flightNumber} on ${departureDate}")
     Async {
       Airline.findByICAO(airlineCode) flatMap { maybeAirline =>
         maybeAirline map { airline =>
@@ -64,7 +65,7 @@ object Flights extends Controller {
             case Nil            => Ok(views.html.flightNotFound(airline, flightNumber, departureDate))
             case _              => BadRequest("oops")
           }
-        } getOrElse future(BadRequest("No such airline $airlineCode"))
+        } getOrElse future(BadRequest(s"No such airline $airlineCode"))
       }
     }
   }
@@ -83,14 +84,27 @@ object Flights extends Controller {
         destinationInfo <- destination.get.withInfo
         if airline.isDefined && destination.isDefined && origin.isDefined
       } yield flights match {
-        case flight :: Nil => Redirect(routes.Flights.findByFlightNumber(airline.get.icao, flight.number, flight.departureTime))
+        case flight :: Nil => Redirect(routes.Flights.map(airline.get.icao, originInfo.icao, destinationInfo.icao, flight.number, flight.departureTime))
         case head :: tail => Ok(views.html.routeSchedule(head :: tail, airline.get, originInfo, destinationInfo, departureDate))
       }
     }
   }
 
   def map(airlineCode: String, originCode: String, destinationCode: String, flightNumber: Int, date: JodaDateTime) = Action {
-    NotImplemented
+    Async {
+      for {
+        airline         <- Airline.findByICAO(airlineCode)
+        origin          <- Airport.findByICAO(originCode)
+        destination     <- Airport.findByICAO(destinationCode)
+        airlineInfo     <- airline.get.withInfo
+        originInfo      <- origin.get.withInfo
+        destinationInfo <- destination.get.withInfo
+        flight          <- Flight.findByNumberOriginDestination(airline.get, flightNumber, origin.get, destination.get, date)
+        if airline.isDefined && origin.isDefined && destination.isDefined
+      } yield flight map { f =>
+        Ok(views.html.map(f, originInfo, destinationInfo, airlineInfo))
+      } getOrElse (NotFound(s"Could not find $airlineCode $flightNumber on $date"))
+    }
   }
 
 }

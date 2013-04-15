@@ -7,7 +7,8 @@ import play.api.data._
 import play.api.Logger
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
+
 
 import org.joda.time.{DateTime => JodaDateTime}
 
