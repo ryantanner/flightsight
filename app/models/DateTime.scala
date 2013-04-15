@@ -61,6 +61,14 @@ object DateTime {
 
   }
 
+  implicit val periodWrites = new Writes[Period] {
+
+    def writes(p: Period): JsValue = {
+      JsString(s"${p.getHours}:${p.getMinutes}:${p.getSeconds}")
+    }
+
+  }
+
 
 }
 

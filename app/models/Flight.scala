@@ -32,7 +32,6 @@ import DateTimeZone._
 import DateTime._
 
 import transformers._
-import controllers._
 
 case class Flight(
   id: BSONObjectID,
@@ -43,10 +42,8 @@ case class Flight(
   destination: String, 
   destinationCity: String, 
   destinationName: String, 
-  //diverted: String,
   estimatedArrivalTime: JodaDateTime, 
   filedAirspeedKts: Int, 
-  //filedAirspeedMach: String, 
   filedAltitude: Int, 
   filedDepartureTime: JodaDateTime, 
   filedETE: Period, 
@@ -60,9 +57,9 @@ case class Flight(
   def number: Int = ident.filter(_.isDigit).toInt
 
   def withAirportInfo: Future[(Flight, AirportInfo, AirportInfo)] = {
-    Airports.findByICAO(origin) flatMap { maybeOrigin =>
+    Airport.findByICAO(origin) flatMap { maybeOrigin =>
       maybeOrigin map { origin =>
-        Airports.findByICAO(destination) flatMap { maybeDestination =>
+        Airport.findByICAO(destination) flatMap { maybeDestination =>
           maybeDestination map { destination =>
             for {
               originInfo      <- origin.withInfo
@@ -100,9 +97,10 @@ object Flight {
 
   /* Mongo Collections */
   val db = ReactiveMongoPlugin.db
-  val flights: JSONCollection = db.collection[JSONCollection]("flights")
+  val flightsColl: JSONCollection = db.collection[JSONCollection]("flights")
 
   implicit val flightReads = Json.reads[Flight]
+  implicit val flightWrites = Json.writes[Flight]
   /* JSON Transformers */
   /*
   implicit val flightReads: Reads[Flight] = (
@@ -156,12 +154,19 @@ object Flight {
 
   def findByFlightNumber(airline: Airline, flightNumber: Int, departureTime: JodaDateTime): Future[List[Flight]] = {
     // Get it from mongo...
-    flights.find(Json.obj(
+    val startDate = departureTime.withTime(0, 0, 0, 0)
+    val endDate = departureTime.withTime(23, 59, 59, 999)
+
+    flightsColl.find(Json.obj(
       "ident" -> JsString(airline.icao + flightNumber),
-      "departureTime" -> JsNumber(departureTime.getMillis))
-    ).cursor[Flight].toList flatMap { flist => 
-      Logger.debug(s"Found ${flist.length} matching flights in mongo")
-      flist match {
+      "filedDepartureTime" -> Json.obj(
+        "$gte" -> startDate.getMillis(),
+        "$lt"  -> endDate.getMillis()
+      )
+    )).cursor[Flight].toList flatMap { flights => 
+      Logger.debug(s"Found ${flights.length} matching flights in mongo")
+
+      flights match {
         case head :: tail => Future.successful(head :: tail)
                              // .. or try FlightAware
         case Nil          => FlightAware.findByFlightNumber(airline, flightNumber, departureTime)
@@ -169,7 +174,10 @@ object Flight {
     }
   }
 
-
+  def insert(flights: Seq[Flight]) = {
+    Logger.info(s"Inserting ${flights.size} flights to mongo")
+    flights foreach { flightsColl.insert(_) } 
+  }
 
 }
 

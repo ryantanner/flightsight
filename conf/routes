@@ -7,7 +7,7 @@ GET     /                                               controllers.Application.
 
 POST    /flight                                         controllers.Flights.handleFlightForm
 
-GET     /flight/$airline<[A-Z]{3}>/:flightNumber/:date  controllers.Flights.find(airline: String, flightNumber: Int, date: JodaDateTime)
+GET     /flight/$airline<[A-Z]{3}>/:flightNumber/:date  controllers.Flights.findByFlightNumber(airline: String, flightNumber: Int, date: JodaDateTime)
 
 GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:date    controllers.Flights.findByRoute(airline: String, orig: String, dest: String, date: JodaDateTime)
 

@@ -24,13 +24,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import org.joda.time.{DateTime => JodaDateTime}
 import com.ning.http.client.Realm.AuthScheme
 
-/*
 import Airport._
 import AirportInfo._
 import Airline._
-import Flight._
-*/
-import controllers.Airports
+//import Flight._
 
 import DateTime._
 
@@ -56,47 +53,17 @@ object FlightAware {
         .get
 
       val futureFlights = request map { response => 
-        Logger.debug(response.body)
-
         val data = response.json \ "FlightInfoExResult"
-
-        Logger.debug(data.toString)
 
         val addFields = (__).json.update(
           addMongoId andThen
           addCreationDate
         )
 
-        /*
-        val airports: Future[Seq[((Airport, AirportInfo), (Airport, AirportInfo))]] = Future.sequence(
-          array.value map { f =>
-            for {
-              maybeOrigin <- Airports.findByICAO((f \ "origin").as[String])
-              maybeDestination <- Airports.findByICAO((f \ "destination").as[String])
-              info <- (for {
-                  origin <- maybeOrigin
-                  destination <- maybeDestination
-                } yield (for {
-                    originInfo <- origin.withInfo
-                    destinationInfo <- destination.withInfo
-                  } yield ((origin, originInfo), (destination, destinationInfo)))
-                ) getOrElse (Future.failed(new Exception("could not find airports")))
-            } yield info
-          }
-        )
-          Airports.findByICAO(f \ "origin") flatMap { maybeOrigin =>
-            maybeOrigin map { origin =>
-              origin.withInfo flatMap { originInfo => 
-                Airports.findByICAO(f \ "destination") map { maybeDestination =>
-                  maybeDestination map { destination =>
-                  */
-
         val flights = for {
           array <- (data \ "flights").transform(readJsArrayMap(addFields))
           flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
         } yield flights 
-
-        Logger.debug(flights.toString)
 
         val nextOffset = (data \ "next_offset").as[Int]
 
@@ -109,6 +76,9 @@ object FlightAware {
       futureFlights flatMap { case (flights, nextOffset) =>
         
         flights foreach (f => Logger.debug(f.toString))
+
+        // toss them all into mongo
+        Flight.insert(flights)
 
         val flightsBeforeDepartureDate = flights filter { f =>
           f.filedDepartureTime.toLocalDate

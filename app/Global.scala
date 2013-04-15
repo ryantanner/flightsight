@@ -11,20 +11,20 @@ object Global extends GlobalSettings {
     Logger.info("Application has started")
 
     // Load airline ICAO codes from file
-    val futureAirlines = Airlines.all
+    val futureAirlines = Airline.all
 
     futureAirlines map { airlines =>
       if(airlines.isEmpty) {
-        Airlines.importJson
+        Airline.importJson
       }
     }
 
     // Load airport ICAO codes from file
-    val futureAirports = Airports.all
+    val futureAirports = Airport.all
 
     futureAirports map { airports =>
       if(airports.isEmpty) {
-        Airports.importJson
+        Airport.importJson
       }
     }
   }  

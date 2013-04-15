@@ -46,13 +46,13 @@ object Flights extends Controller {
   def handleFlightForm = Action { implicit request =>
     flightForm.bindFromRequest.fold(
       formWithErrors => BadRequest(views.html.flightSelector(formWithErrors)),
-      value => Redirect(routes.Flights.find(value._1, value._2, value._3))
+      value => Redirect(routes.Flights.findByFlightNumber(value._1, value._2, value._3))
     )
   }
 
-  def find(airlineCode: String, flightNumber: Int, departureDate: JodaDateTime) = Action {
+  def findByFlightNumber(airlineCode: String, flightNumber: Int, departureDate: JodaDateTime) = Action {
     Async {
-      Airlines.findByICAO(airlineCode) flatMap { maybeAirline =>
+      Airline.findByICAO(airlineCode) flatMap { maybeAirline =>
         maybeAirline map { airline =>
           for {
             flights         <- Flight.findByFlightNumber(airline, flightNumber, departureDate)
@@ -75,15 +75,15 @@ object Flights extends Controller {
   def findByRoute(airlineCode: String,  origCode: String, destCode: String, departureDate: JodaDateTime) = Action {
     Async {
       for {
-        airline         <- Airlines.findByICAO(airlineCode)
-        destination     <- Airports.findByICAO(destCode)
-        origin          <- Airports.findByICAO(origCode)
+        airline         <- Airline.findByICAO(airlineCode)
+        destination     <- Airport.findByICAO(destCode)
+        origin          <- Airport.findByICAO(origCode)
         flights         <- FlightAware.findByRoute(airline.get, destination.get, origin.get, departureDate)
         originInfo      <- origin.get.withInfo
         destinationInfo <- destination.get.withInfo
         if airline.isDefined && destination.isDefined && origin.isDefined
       } yield flights match {
-        case flight :: Nil => Redirect(routes.Flights.find(airline.get.icao, flight.number, flight.departureTime))
+        case flight :: Nil => Redirect(routes.Flights.findByFlightNumber(airline.get.icao, flight.number, flight.departureTime))
         case head :: tail => Ok(views.html.routeSchedule(head :: tail, airline.get, originInfo, destinationInfo, departureDate))
       }
     }
