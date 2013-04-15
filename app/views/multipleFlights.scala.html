@@ -25,7 +25,7 @@
           <td>@flight.originCity</td>
           <td>@flight.destinationCity</td>
           <td>@DateTimeFormat.shortTime.print(flight.filedDepartureTime.withZone(origin.timezone)) @origin.timezone.getShortName(flight.filedDepartureTime.getMillis)</td>
-          <td>@DateTimeFormat.shortTime.print(flight.filedTime.withZone(destination.timezone)) @destination.timezone.getShortName(flight.filedTime.getMillis)</td>
+          <td>@DateTimeFormat.shortTime.print(flight.filedArrivalTime.withZone(destination.timezone)) @destination.timezone.getShortName(flight.filedArrivalTime.getMillis)</td>
           <td><a class="btn"
                  href="@routes.Flights.map(airline.icao, origin.icao, destination.icao, flight.number, flight.filedDepartureTime)">Select</a></td>
         </tr>

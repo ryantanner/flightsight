@@ -14,7 +14,7 @@ import play.api.Play.current
 import play.api.Logger
 
 import org.joda.time.{DateTimeZone => JodaTimeZone, DateTime => JodaDateTime}
-import org.joda.time.LocalDateTime
+import org.joda.time.Period
 
 import scala.concurrent.Future
 import scala.concurrent.Await
@@ -29,6 +29,7 @@ import play.modules.reactivemongo.json.collection._
 import play.modules.reactivemongo.json.BSONFormats._
 
 import DateTimeZone._
+import DateTime._
 
 import transformers._
 import controllers._
@@ -48,7 +49,7 @@ case class Flight(
   //filedAirspeedMach: String, 
   filedAltitude: Int, 
   filedDepartureTime: JodaDateTime, 
-  filedETE: String, 
+  filedETE: Period, 
   filedTime: JodaDateTime,
   ident: String, 
   origin: String, 
@@ -71,6 +72,11 @@ case class Flight(
         }
       } getOrElse Future.failed(new Exception("no such airport"))
     }
+  }
+
+  def filedArrivalTime: JodaDateTime = {
+    // returns in UTC
+    filedDepartureTime plus filedETE
   }
 
 }
@@ -124,23 +130,23 @@ object Flight {
   )(Flight.apply _)
   */
 
-  def readFlightWithTimeZones(originZone: JodaTimeZone, destinationZone: JodaTimeZone): Reads[Flight] = (
+  val faFlightReads: Reads[Flight] = (
     (__ \ "id").read[BSONObjectID] ~
     (__ \ "faFlightID").read[String] ~
-    (__ \ "actualarrivaltime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads(destinationZone)) ~
-    (__ \ "actualdeparturetime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads(originZone)) ~
+    (__ \ "actualarrivaltime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads) ~
+    (__ \ "actualdeparturetime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads) ~
     (__ \ "aircrafttype").read[String] ~
     (__ \ "destination").read[String] ~
     (__ \ "destinationCity").read[String] ~
     (__ \ "destinationName").read[String] ~
     //(__ \ "diverted").read[String] ~
-    (__ \ "estimatedarrivaltime").read[JodaDateTime](DateTime.secondsJodaDateReads(destinationZone)) ~
+    (__ \ "estimatedarrivaltime").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
     (__ \ "filed_airspeed_kts").read[Int] ~
     //(__ \ "filed_airspeed_mach").read[String] ~
     (__ \ "filed_altitude").read[Int] ~
-    (__ \ "filed_departuretime").read[JodaDateTime](DateTime.secondsJodaDateReads(originZone)) ~
-    (__ \ "filed_ete").read[String] ~
-    (__ \ "filed_time").read[JodaDateTime](DateTime.secondsJodaDateReads(destinationZone)) ~
+    (__ \ "filed_departuretime").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
+    (__ \ "filed_ete").read[Period] ~
+    (__ \ "filed_time").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
     (__ \ "ident").read[String] ~
     (__ \ "origin").read[String] ~
     (__ \ "originCity").read[String] ~

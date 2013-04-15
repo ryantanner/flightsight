@@ -93,7 +93,7 @@ object FlightAware {
 
         val flights = for {
           array <- (data \ "flights").transform(readJsArrayMap(addFields))
-          flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.flightReads))
+          flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
         } yield flights 
 
         Logger.debug(flights.toString)
@@ -102,7 +102,7 @@ object FlightAware {
 
         flights fold (
           error => throw new Exception(error.mkString("\n")),
-          success => (flights, nextOffset)
+          success => (success, nextOffset)
         ) 
       }
 

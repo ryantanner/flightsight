@@ -9,6 +9,7 @@ import scala.util.control.Exception.allCatch
 import org.joda.time.{DateTime => JodaDateTime}
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTimeZone => JodaTimeZone}
+import org.joda.time.Period
 
 object DateTime {
 
@@ -29,10 +30,10 @@ object DateTime {
 
   // FlightAware gives us seconds since epoch, we need to x1000 that so it's in milliseconds for Joda
   // If a flight is in the future, actual times are 0 so we'll store a None
-  def secondsOptionalJodaDateReads(timezone: JodaTimeZone) = new Reads[Option[JodaDateTime]] {
+  def secondsOptionalJodaDateReads = new Reads[Option[JodaDateTime]] {
 
     def reads(json: JsValue): JsResult[Option[JodaDateTime]] = json match {
-      case JsNumber(d) if (d > 0) => JsSuccess(Some(new JodaDateTime(d.toLong*1000, timezone)))
+      case JsNumber(d) if (d > 0) => JsSuccess(Some(new JodaDateTime(d.toLong*1000, JodaTimeZone.UTC)))
       case JsNumber(d) if (d <= 0) => JsSuccess(None)
       case _           => JsError(Seq(JsPath() -> Seq(ValidationError("expected seconds"))))
     }
@@ -40,11 +41,22 @@ object DateTime {
   }
 
   // FlightAware gives us seconds since epoch, we need to x1000 that so it's in milliseconds for Joda
-  def secondsJodaDateReads(timezone: JodaTimeZone) = new Reads[JodaDateTime] {
+  def secondsJodaDateReads = new Reads[JodaDateTime] {
 
     def reads(json: JsValue): JsResult[JodaDateTime] = json match {
-      case JsNumber(d) => JsSuccess(new JodaDateTime(d.toLong*1000, timezone))
+      case JsNumber(d) => JsSuccess(new JodaDateTime(d.toLong*1000, JodaTimeZone.UTC))
       case _           => JsError(Seq(JsPath() -> Seq(ValidationError("expected seconds"))))
+    }
+
+  }
+
+  implicit val periodReads = new Reads[Period] {
+
+    def reads(json: JsValue): JsResult[Period] = json match {
+      case JsString(s) => 
+        val times = s.split(":").map(_.toInt)
+        JsSuccess(new Period(times(0), times(1), times(2), 0))
+      case _ => JsError(Seq(JsPath() -> Seq(ValidationError("expected string"))))
     }
 
   }
