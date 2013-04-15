@@ -1,16 +1,15 @@
-@(flights: List[Flight], airline: AirlineInfo, departureDate: JodaDateTime)
+@(flights: List[(Flight, AirportInfo, AirportInfo)], airline: AirlineInfo, departureDate: JodaDateTime)
 
 @main("Multiple Flights Found") {
 
   <h2>Multiple Flights Found</h2>
 
-  <p>Multiple flights found for @airline.name flight @flights.head.ident on @departureDate.toLocalDate</p>
+  <p>Multiple flights found for @airline.shortname flight @flights.head._1.ident on @departureDate.toLocalDate</p>
 
   <table class="table multiple-flights">
 
     <thead>
       <tr>
-        <th>#</th>
         <th>Origin</th>
         <th>Destination</th>
         <th>Scheduled Depature Time</th>
@@ -21,15 +20,14 @@
 
     <tbody>
       
-      @flights.zipWithIndex.map { case (flight, index) =>
+      @flights.map { case (flight, origin, destination) =>
         <tr>
-          <td>@index</td>
           <td>@flight.originCity</td>
           <td>@flight.destinationCity</td>
-          <td>@flight.filedDepartureTime</td>
-          <td>@flight.filedTime</td>
+          <td>@DateTimeFormat.shortTime.print(flight.filedDepartureTime.withZone(origin.timezone)) @origin.timezone.getShortName(flight.filedDepartureTime.getMillis)</td>
+          <td>@DateTimeFormat.shortTime.print(flight.filedTime.withZone(destination.timezone)) @destination.timezone.getShortName(flight.filedTime.getMillis)</td>
           <td><a class="btn"
-                 href="@routes.Flights.map(flight.ident, flight.filedDepartureTime, flight.faFlightId)">Select</a></td>
+                 href="@routes.Flights.map(airline.icao, origin.icao, destination.icao, flight.number, flight.filedDepartureTime)">Select</a></td>
         </tr>
       }
 

@@ -1,24 +1,34 @@
 package models
 
 import play.api.libs.json._
-import play.api.mvc.PathBindable
+import play.api.libs.json.util._
+import play.api.libs.json.Reads._
+import play.api.libs.json.Writes._
+import play.api.libs.json.Format._
+import play.api.libs.functional.syntax._
+
+import play.api.Logger
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
-
-import org.joda.time.{DateTime => JodaDateTime}
-
 import scala.concurrent.Future
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import controllers.Airlines
+import org.joda.time.{DateTime => JodaDateTime}
 
-case class Airline(icao: String, 
+import reactivemongo.bson.BSONObjectID
+import play.modules.reactivemongo.json.BSONFormats._
+
+import controllers.Airlines
+import transformers._
+
+
+case class Airline(id: Option[BSONObjectID],
+                   icao: String, 
                    creationDate: Option[JodaDateTime])
 
-case class AirlineInfo(icao: String,
+case class AirlineInfo(id: Option[BSONObjectID],
+                       icao: String,
                        callsign: String,
                        country: String,
                        location: String,
@@ -29,33 +39,27 @@ case class AirlineInfo(icao: String,
                        creationDate: Option[JodaDateTime])
 object Airline {
 
+  /* JSON Formatters and Transformers */
   implicit val airlineFormat = Json.format[Airline]
+
 
   implicit class WithInfo(airline: Airline) {
     def withInfo: Future[AirlineInfo] = {
+      Logger.debug("Getting AirlineInfo for " + airline.icao)
       // Get it from Mongo...
       Airlines.info(airline).filter(_.isDefined).recoverWith[Option[AirlineInfo]] {
-        case e:NoSuchElementException => FlightAware.airlineInfo(airline).map(Some(_))
+        // ...or get it from FlightAware
+        case e:NoSuchElementException => 
+          val futureAirlineInfo = FlightAware.airlineInfo(airline)
+          futureAirlineInfo map (Airlines.insertAirlineInfo(_)) // insert into mongo
+          futureAirlineInfo map (Some(_)) // return it
       } collect {
         case Some(airlineInfo) => airlineInfo
       }
     }
   }
 
-  implicit def pathBinder(implicit stringBinder: PathBindable[String]) = new PathBindable[Airline] {
-      
-    def bind(key: String, value: String): Either[String, Airline] = 
-      // unfortunately we need to block as PathBinders must be synchronous
-      for {
-        // bind the string
-        icao <- stringBinder.bind(key, value).right
-        airline <- Await.result(Airlines.findByICAO(icao), 1 second).toRight("Future failed").right
-      } yield airline
 
-    def unbind(key: String, airline: Airline): String = 
-      stringBinder.unbind(key, airline.icao)
-
-  }  
 
 }
 

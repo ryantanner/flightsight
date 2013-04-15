@@ -8,15 +8,12 @@
 
   @helper.inputText(flightForm("flightNumber"))
 
-  @helper.inputDate(flightForm("date"), 'id -> "datePicker")
+  @helper.inputDate(flightForm("date"), 
+    'id -> "datePicker",
+    Symbol("data-date-format") -> "mm/dd/yyyy")
 
   <button type="submit" class="btn">Take to the Skies!</button>
 
 }
 
-<script type="text/javascript">
 
-
-<form class="flight-selection span4 offset2 well">
-
-</div>

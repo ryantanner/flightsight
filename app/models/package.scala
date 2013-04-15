@@ -1,59 +1,86 @@
-package models 
+package models
 
-import play.api.mvc.PathBindable
 import play.api.libs.json._
+import play.api.libs.json.util._
+import play.api.libs.json.Reads._
+//import play.api.libs.json.Writes._
+//import play.api.libs.json.Format._
+import play.api.libs.functional.syntax._
 import play.api.data.validation.ValidationError
 
-import scala.util.control.Exception.allCatch
+import play.api.Logger
+
+import reactivemongo.api._
+import reactivemongo.bson._
+
+import play.modules.reactivemongo._
+import play.modules.reactivemongo.json.collection._
+
+import reactivemongo.bson.BSONObjectID
+import play.modules.reactivemongo.json.BSONFormats._
 
 import org.joda.time.{DateTime => JodaDateTime}
-import org.joda.time.format.DateTimeFormat
-import org.joda.time.{DateTimeZone => JodaTimeZone}
+import DateTimeZone._
 
-object DateTime {
+object transformers {
 
-  implicit def dateBinder(implicit stringBinder: PathBindable[String]) = new PathBindable[JodaDateTime] {
+  def icaoTransformer(icao: String): Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj("icao" -> icao) }
+  )
 
-    val formatter = DateTimeFormat.forPattern("yyyy-MM-dd")
+  def addMongoId: Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj(
+      "id" -> Json.obj("$oid" ->
+      BSONObjectID.generate.stringify)) }
+  )
 
-    def bind(key: String, value: String): Either[String, JodaDateTime] =
-      for {
-        dateString <- stringBinder.bind(key, value).right
-        date <- (allCatch opt { formatter.parseDateTime(dateString) }).toRight("Date not in valid format").right
-      } yield date
+  def addCreationDate: Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj("creationDate" ->
+      new JodaDateTime
+    )}
+  )
 
-    def unbind(key: String, date: JodaDateTime): String =
-      stringBinder.unbind(key, date.toString)
+  def secondsToMilliseconds: Reads[JsObject] = (__).json.update(
+    of[JsNumber].map { case JsNumber(secs) => {
+      Logger.debug("converting seconds to milliseconds")
+      JsNumber(secs * 1000) 
+    }}
+  )
 
-  }
-
-}
-
-object DateTimeZone {
-
-  /**
-   * Reads for the `org.joda.time.DateTimeZone` type.
-   *
-   * @param pattern a long TimeZne id, as specified in `java.util.TimeZone`.
-   */
-  def jodaTimeZoneReads: Reads[JodaTimeZone] = new Reads[JodaTimeZone] {
-    def reads(json: JsValue): JsResult[JodaTimeZone] = json match {
-      case JsString(s) => try {
-          val tzone = JodaTimeZone.forID(s.replace(":",""))
-          JsSuccess(tzone)
-        } catch {
-          case ex: IllegalArgumentException => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.jodadatetimezone.format"))))
+  // From here:
+  // https://gist.github.com/mandubian/5183939
+  def readJsArrayMap[A <: JsValue](transformEach: Reads[A]): Reads[JsArray] = Reads { js => js match {
+    case arr: JsArray =>
+      arr.value.foldLeft(JsSuccess(Seq[JsValue]()): JsResult[Seq[JsValue]]) { (acc, e) => 
+        acc.flatMap{ seq => 
+          e.transform(transformEach).map( v => seq :+ v )
         }
-      case _ => JsError(Seq(JsPath() -> Seq(ValidationError("validate.error.expected.date"))))
-    }
-  }
+      }.map(JsArray(_))
+    case _ => JsError("expected JsArray")
+  }}
 
-  def jodaTimeZoneWrites: Writes[JodaTimeZone] = new Writes[JodaTimeZone] {
-    def writes(tz: JodaTimeZone): JsValue = {
-      JsString(tz.getID)
-    }
-  }
+  def validateJsArrayMap[A](validateEach: Reads[A]): Reads[Seq[A]] = Reads { js => js match {
+    case arr: JsArray =>
+      arr.value.foldLeft(JsSuccess(Seq[A]()): JsResult[Seq[A]]) { (acc, e) =>
+        acc.flatMap { seq =>
+          e.validate(validateEach).map( v => seq :+ v)
+        }
+      }.map(x => x)
+    case _ => JsError("expected JsArray")
+  }}
 
-  implicit val jodaTimeZoneFormat: Format[JodaTimeZone] = Format(jodaTimeZoneReads, jodaTimeZoneWrites)
+
+//}
+
+/* Impliciit JSON formatters */
+//object formatters {
+
+
+
+  /* JSON formatters and transformers */
+  //implicit val flightFormat = Json.format[Flight]
+  //implicit val scheduledFlightFormat = Json.format[ScheduledFlight]
+
+
 
 }
