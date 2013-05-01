@@ -1,0 +1,21 @@
+@(username: String)(uploadForm: Form[(String)])
+
+@import helper.twitterBootstrap._
+
+@main(username)(sidebar()) {
+
+  <h1>GNIS File Upload</h1>
+
+  @helper.form(action = controllers.admin.routes.POI.processGNIS, 'enctype -> "multipart/form-data") {
+
+    <input type="file" name="poifile" multiple="multiple" />
+
+    @helper.select(uploadForm("collection"), helper.options(List("all", "concise")))
+
+    <button type="submit" class="btn btn-large btn-primary">Upload</button>
+
+  }
+
+}
+
+

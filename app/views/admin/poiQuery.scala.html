@@ -1,0 +1,19 @@
+@(username: String)(queryForm: Form[GeoPoint])
+
+@import helper.twitterBootstrap._
+
+@main(username)(sidebar()) {
+
+  <h1>POI Query</h1>
+
+  @helper.form(action = controllers.admin.routes.POI.queryPoint) {
+
+    @helper.inputText(queryForm("long"), 'value -> "-98.4933")
+
+    @helper.inputText(queryForm("lat"), 'value -> "29.4239")
+
+    <button type="submit" class="btn btn-large btn-primary">Query</button>
+
+  }
+
+}

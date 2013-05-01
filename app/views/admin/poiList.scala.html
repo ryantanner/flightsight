@@ -1,0 +1,64 @@
+@(username: String)(concise: List[POI], all: List[POI])
+
+@import helper.twitterBootstrap._
+
+@main(username)(sidebar()) {
+
+  <h1>POI List</h1>
+
+  <h3>@concise.length concise points</h3>
+
+
+  <table class="table table-condensed">
+    <thead>
+      <tr>
+        <td>Feature Class</td>
+        <td>Name</td>
+        <td>State</td>
+        <td>County</td>
+        <td>Map Name</td>
+      </tr>
+    </thead>
+    <tbody>
+    @concise.map { point =>
+      <tr>
+        <td>@point.featureClass</td>
+        <td>@point.name</td>
+        <td>@point.state</td>
+        <td>@point.county</td>
+        <td>@point.mapName</td>
+      </td>
+    }
+    </tbody>
+  </table>
+
+  <h3>@all.length total points</h3>
+
+  <table class="table table-condensed">
+    <thead>
+      <tr>
+        <td>Feature Class</td>
+        <td>Name</td>
+        <td>State</td>
+        <td>County</td>
+        <td>Map Name</td>
+      </tr>
+    </thead>
+    <tbody>
+    @all.map { point =>
+      <tr>
+        <td>@point.featureClass</td>
+        <td>@point.name</td>
+        <td>@point.state</td>
+        <td>@point.county</td>
+        <td>@point.mapName</td>
+      </td>
+    }
+    </tbody>
+  </table>
+
+
+}
+
+
+

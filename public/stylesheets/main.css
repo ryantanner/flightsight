@@ -1,4 +1,4 @@
-body {
+body.img-bg {
   background: url('../images/airplane_bg.jpg') no-repeat;
 }
 
@@ -15,3 +15,6 @@ body {
   background-color: rgba(225,225,225,0.5);
 }
 
+.over-img {
+  background-color: rgba(225,225,225,0.5);
+}

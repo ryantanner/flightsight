@@ -18,6 +18,16 @@ GET     /airlines                                       controllers.Airlines.lis
 #GET     /flight/search                                  controllers.Flights.search(flight: ScheduledFlight)
 
 
+GET     /admin                                    controllers.admin.Admin.index
+GET     /admin/login                              controllers.admin.Admin.login
+POST    /admin/login                              controllers.admin.Admin.authenticate
+GET     /admin/logout                             controllers.admin.Admin.logout
+GET     /admin/poi/upload                         controllers.admin.POI.upload
+POST    /admin/poi/upload                         controllers.admin.POI.processGNIS
+GET     /admin/poi/query                          controllers.admin.POI.query
+POST    /admin/poi/query                          controllers.admin.POI.queryPoint
+
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 

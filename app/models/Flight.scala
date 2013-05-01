@@ -101,33 +101,8 @@ object Flight {
 
   implicit val flightReads = Json.reads[Flight]
   implicit val flightWrites = Json.writes[Flight]
-  /* JSON Transformers */
-  /*
-  implicit val flightReads: Reads[Flight] = (
-    (__ \ "id").read[BSONObjectID] ~
-    (__ \ "faFlightID").read[String] ~
-    (__ \ "actualarrivaltime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads) ~
-    (__ \ "actualdeparturetime").read[Option[JodaDateTime]](DateTime.secondsOptionalJodaDateReads) ~
-    (__ \ "aircrafttype").read[String] ~
-    (__ \ "destination").read[String] ~
-    (__ \ "destinationCity").read[String] ~
-    (__ \ "destinationName").read[String] ~
-    //(__ \ "diverted").read[String] ~
-    (__ \ "estimatedarrivaltime").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
-    (__ \ "filed_airspeed_kts").read[Int] ~
-    //(__ \ "filed_airspeed_mach").read[String] ~
-    (__ \ "filed_altitude").read[Int] ~
-    (__ \ "filed_departuretime").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
-    (__ \ "filed_ete").read[String] ~
-    (__ \ "filed_time").read[JodaDateTime](DateTime.secondsJodaDateReads) ~
-    (__ \ "ident").read[String] ~
-    (__ \ "origin").read[String] ~
-    (__ \ "originCity").read[String] ~
-    (__ \ "originName").read[String] ~
-    (__ \ "creationDate").readNullable[JodaDateTime]
-  )(Flight.apply _)
-  */
 
+  /* JSON Transformers */
   val faFlightReads: Reads[Flight] = (
     (__ \ "id").read[BSONObjectID] ~
     (__ \ "faFlightID").read[String] ~
@@ -151,6 +126,10 @@ object Flight {
     (__ \ "originName").read[String] ~
     (__ \ "creationDate").readNullable[JodaDateTime]
   )(Flight.apply _)
+
+  def all: Future[List[Flight]] = {
+    flightsColl.find(Json.obj()).cursor[Flight].toList
+  }
 
   def findByFlightNumber(airline: Airline, flightNumber: Int, departureTime: JodaDateTime): Future[List[Flight]] = {
     // Get it from mongo...

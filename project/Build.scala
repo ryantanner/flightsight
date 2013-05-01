@@ -9,11 +9,12 @@ object ApplicationBuild extends Build {
 
   val appDependencies = Seq(
     // Add your project dependencies here,
-    "org.reactivemongo" %% "reactivemongo" % "0.9-SNAPSHOT",
-    //"org.reactivemongo" %% "play2-reactivemongo" % "0.9-SNAPSHOT",
+    "org.reactivemongo" %% "reactivemongo" % "0.9",
+    "org.reactivemongo" %% "play2-reactivemongo" % "0.9",
     "org.webjars" % "webjars-play" % "2.1.0-1",
     "org.webjars" % "bootstrap" % "2.3.1",
-    "org.webjars" % "jquery" % "1.9.1"
+    "org.webjars" % "jquery" % "1.9.1",
+    "org.mindrot" % "jbcrypt" % "0.3m"
   )
 
   val main = play.Project(appName, appVersion, appDependencies).settings(

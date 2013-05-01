@@ -1,6 +1,6 @@
 @(flights: List[ScheduledFlight], airline: Airline, origin: AirportInfo, destination: AirportInfo, departureDate: JodaDateTime)
 
-@main(s"Scheduled Flights between ${origin.location} and ${destination.location}") {
+@main(s"Scheduled Flights between ${origin.location} and ${destination.location}")(imageBG = true) {
 
   <table class="table">
 
