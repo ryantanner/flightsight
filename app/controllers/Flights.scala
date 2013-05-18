@@ -8,6 +8,8 @@ import play.api.data.Forms._
 import play.api.data.validation.Constraints._
 import play.api.libs.json._
 import play.api.libs.iteratee._
+import play.api.libs.Comet.CometMessage
+import play.api.libs.EventSource
 
 import play.api.Logger
 
@@ -59,11 +61,11 @@ object Flights extends Controller {
             flights         <- Flight.findByFlightNumber(airline, flightNumber, departureDate)
             withAirportInfo <- Future.sequence(flights.map(f => f.withAirportInfo))
             airlineInfo     <- airline.withInfo
-          } yield withAirportInfo match {
-            case List(f)        => Redirect(routes.Flights.map(airline.icao, f._2.icao, f._3.icao, f._1.number, departureDate))
-            case head :: tail   => Ok(views.html.multipleFlights(head :: tail, airlineInfo, departureDate))
-            case Nil            => Ok(views.html.flightNotFound(airline, flightNumber, departureDate))
-            case _              => BadRequest("oops")
+          } yield (flights, withAirportInfo) match {
+            case (List(f), List(ai))        => Redirect(routes.Flights.map(airline.icao, ai.origin.icao, ai.destination.icao, f.number, departureDate))
+            case (head :: tail, airports)   => Ok(views.html.multipleFlights((head :: tail).zip(airports), airlineInfo, departureDate))
+            case (Nil, _)                   => Ok(views.html.flightNotFound(airline, flightNumber, departureDate))
+            case _                          => BadRequest("oops")
           }
         } getOrElse future(BadRequest(s"No such airline $airlineCode"))
       }
@@ -106,5 +108,39 @@ object Flights extends Controller {
       } getOrElse (NotFound(s"Could not find $airlineCode $flightNumber on $date"))
     }
   }
+
+  def flightRoute(airlineCode: String, originCode: String, destinationCode: String, flightNumber: Int, date: JodaDateTime) = Action {
+    Async {
+      for {
+        airline         <- Airline.findByICAO(airlineCode)
+        origin          <- Airport.findByICAO(originCode)
+        destination     <- Airport.findByICAO(destinationCode)
+        airlineInfo     <- airline.get.withInfo
+        originInfo      <- origin.get.withInfo
+        destinationInfo <- destination.get.withInfo
+        flight          <- Flight.findByNumberOriginDestination(airline.get, flightNumber, origin.get, destination.get, date)
+        if airline.isDefined && origin.isDefined && destination.isDefined
+        maybeRoute      <- Flight.route(flight.get.faFlightId)
+      } yield maybeRoute map { route =>
+        Ok.stream((route &> toJson &> EventSource[JsValue]()(
+          encoder = CometMessage.jsonMessages,
+          eventNameExtractor = pointNameExtractor,
+          eventIdExtractor = pointIdExtractor
+        )) >>> Enumerator.eof).as("text/event-stream")
+      } getOrElse NotFound
+    }
+  }
+
+  private def toJson: Enumeratee[FlightPoint, JsValue] = Enumeratee.map[FlightPoint] {
+    flightPoint => Json.toJson(flightPoint)
+  }
+
+  private def toEventSource: Enumeratee[JsValue, String] = Enumeratee.map[JsValue] {
+    js => "event: point\n\ndata: " + js.toString + "\n\n"
+  }
+
+  val pointNameExtractor = EventSource.EventNameExtractor[JsValue]( (_) => Some("point"))
+  val pointIdExtractor = EventSource.EventIdExtractor[JsValue]( (flightPoint) => Some(flightPoint \ "id" \ "$oid" toString))
+
 
 }

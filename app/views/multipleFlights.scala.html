@@ -1,4 +1,4 @@
-@(flights: List[(Flight, AirportInfo, AirportInfo)], airline: AirlineInfo, departureDate: JodaDateTime)
+@(flights: List[(Flight, FlightAirportInfo)], airline: AirlineInfo, departureDate: JodaDateTime)
 
 @main("Multiple Flights Found")(imageBG = true) {
 
@@ -20,14 +20,14 @@
 
     <tbody>
       
-      @flights.map { case (flight, origin, destination) =>
+      @flights.map { case (flight, airports) =>
         <tr>
           <td>@flight.originCity</td>
           <td>@flight.destinationCity</td>
-          <td>@DateTimeFormat.shortTime.print(flight.filedDepartureTime.withZone(origin.timezone)) @origin.timezone.getShortName(flight.filedDepartureTime.getMillis)</td>
-          <td>@DateTimeFormat.shortTime.print(flight.filedArrivalTime.withZone(destination.timezone)) @destination.timezone.getShortName(flight.filedArrivalTime.getMillis)</td>
+          <td>@DateTimeFormat.shortTime.print(flight.filedDepartureTime.withZone(airports.origin.timezone)) @airports.origin.timezone.getShortName(flight.filedDepartureTime.getMillis)</td>
+          <td>@DateTimeFormat.shortTime.print(flight.filedArrivalTime.withZone(airports.destination.timezone)) @airports.destination.timezone.getShortName(flight.filedArrivalTime.getMillis)</td>
           <td><a class="btn"
-                 href="@routes.Flights.map(airline.icao, origin.icao, destination.icao, flight.number, flight.filedDepartureTime)">Select</a></td>
+                 href="@routes.Flights.map(airline.icao, airports.origin.icao, airports.destination.icao, flight.number, flight.filedDepartureTime)">Select</a></td>
         </tr>
       }
 

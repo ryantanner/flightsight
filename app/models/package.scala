@@ -34,6 +34,18 @@ object transformers {
       BSONObjectID.generate.stringify)) }
   )
 
+  def addFaFlightId(faFlightId: String): Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj("faFlightId" -> faFlightId)}
+  )
+
+  def addNotPlanned: Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj("planned" -> false)}
+  )
+
+  def addIsPlanned: Reads[JsObject] = (__).json.update(
+    __.read[JsObject].map { o => o ++ Json.obj("planned" -> true)}
+  )
+
   def addCreationDate: Reads[JsObject] = (__).json.update(
     __.read[JsObject].map { o => o ++ Json.obj("creationDate" ->
       new JodaDateTime
@@ -46,6 +58,12 @@ object transformers {
       JsNumber(secs * 1000) 
     }}
   )
+
+  val latLngToGeoPoint: Reads[JsObject] = 
+    (__ \ 'location \ 'coordinates).json.copyFrom(
+       ((__ \ "latitude").json.pick and       
+       (__ \ "longitude").json.pick).tupled.map{ case(lat, long) => Json.arr(long, lat) }
+    ).andThen(__.json.update((__ \ 'location \ 'type).json.put(JsString("Point"))))
 
   // From here:
   // https://gist.github.com/mandubian/5183939

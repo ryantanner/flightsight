@@ -36,55 +36,66 @@ import transformers._
 
 object FlightAware {
 
- val endpoint = "http://flightxml.flightaware.com/json/FlightXML2/"
+  val endpoint = "http://flightxml.flightaware.com/json/FlightXML2/"
+
+  private def flightInfoEx(params: List[(String, String)], offset: Int = 0): Future[(Seq[Flight], Int)] = {
+    Logger.debug("FlightAware: Requesting flights with offset " + offset)
+
+    val request = wsAuth(endpoint + "FlightInfoEx")
+      .withQueryString(params:_*)
+      .withQueryString(("offset" -> offset.toString))
+      .get
+
+    request map { response => 
+      // Check that response doesn't contain an error
+      (response.json \ "error").asOpt[String] match {
+        case Some(error) => (Nil, -1)
+        case None => {
+          val data = response.json \ "FlightInfoExResult"
+
+          val addFields = (__).json.update(
+            addMongoId andThen
+            addCreationDate
+          )
+
+          val flights = for {
+            array <- (data \ "flights").transform(readJsArrayMap(addFields))
+            flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
+          } yield flights 
+
+          val nextOffset = (data \ "next_offset").as[Int]
+
+          flights fold (
+            error => throw new Exception(error.mkString("\n")),
+            success => (success, nextOffset)
+          ) 
+        }
+      }
+    }
+  }
+
+  def findByFaFlightId(faFlightId: String): Future[Option[Flight]] = {
+    val params = List(
+      "ident" -> faFlightId,
+      "howMany" -> "15"
+    )
+
+    flightInfoEx(params).map(_._1.headOption)
+  }
 
   def findByFlightNumber(airline: Airline, flightNumber: Int, departureDate: JodaDateTime, airports: Option[(Airport, Airport)] = None): Future[List[Flight]] = {
-    Logger.debug(s"Requesting flights by number for ${airline.icao} $flightNumber on ${departureDate.toLocalDate.toString}")
+    Logger.debug(s"FlightAware: Requesting flights by number for ${airline.icao} $flightNumber on ${departureDate.toLocalDate.toString}")
     val params = List(
       ("ident", airline.icao + flightNumber),
       ("howMany", "15"))
 
-    def requestFlights(params: List[(String, String)], offset: Int = 0): Future[List[Flight]] = {
-      Logger.debug("Requesting flights with offset " + offset)
-
-      val request = wsAuth(endpoint + "FlightInfoEx")
-        .withQueryString(params:_*)
-        .withQueryString(("offset" -> offset.toString))
-        .get
-
-      val futureFlights = request map { response => 
-        // Check that response doesn't contain an error
-        (response.json \ "error").asOpt[String] match {
-          case Some(error) => (Nil, -1)
-          case None => {
-            val data = response.json \ "FlightInfoExResult"
-
-            val addFields = (__).json.update(
-              addMongoId andThen
-              addCreationDate
-            )
-
-            val flights = for {
-              array <- (data \ "flights").transform(readJsArrayMap(addFields))
-              flights <- array.validate[Seq[Flight]](validateJsArrayMap[Flight](Flight.faFlightReads))
-            } yield flights 
-
-            val nextOffset = (data \ "next_offset").as[Int]
-
-            flights fold (
-              error => throw new Exception(error.mkString("\n")),
-              success => (success, nextOffset)
-            ) 
-          }
-        }
-      }
+    def findByFlightNumberHelper(params: List[(String, String)], offest: Int = 0): Future[List[Flight]] = {
+      val futureFlights = flightInfoEx(params)
 
       futureFlights flatMap { case (flights, nextOffset) =>
         
-        flights foreach (f => Logger.debug(f.toString))
-
         // toss them all into mongo
-        Flight.insert(flights)
+        flights foreach Flight.insert
 
         val flightsBeforeDepartureDate = flights filter { f =>
           f.filedDepartureTime.toLocalDate
@@ -108,9 +119,9 @@ object FlightAware {
           .isAfter(departureDate.toLocalDate)
         }
 
-        Logger.debug("Flights found on date: " + flightsOnDepartureDate.length)
-        Logger.debug("Flights found after date: " + flightsAfterDepartureDate.length)
-        Logger.debug("Flights found before date: " + flightsBeforeDepartureDate.length)
+        Logger.debug("FlightAware: Flights found on date: " + flightsOnDepartureDate.length)
+        Logger.debug("FlightAware: Flights found after date: " + flightsAfterDepartureDate.length)
+        Logger.debug("FlightAware: Flights found before date: " + flightsBeforeDepartureDate.length)
 
         flightsOnDepartureDate match {
           case head :: tail => Future.successful(head :: tail) // found flights on given date, return those
@@ -118,22 +129,20 @@ object FlightAware {
             if (flightsBeforeDepartureDate.isEmpty && flightsAfterDepartureDate.isEmpty) 
               Future.successful(Nil) // no applicable flights
             else if (flightsBeforeDepartureDate.nonEmpty && flightsAfterDepartureDate.isEmpty) // all flights before given date, move to next offset
-              requestFlights(params, nextOffset)
+              findByFlightNumberHelper(params, nextOffset)
             else 
               Future.successful(Nil) // no applicable flights
         }
 
-      } recover {
-        case t:Throwable => throw t
-      }
-          
+      } 
     }
 
-    requestFlights(params) 
+    findByFlightNumberHelper(params)
+          
   }
 
   def findByRoute(airline: Airline, destination: Airport, origin: Airport, departureDate: JodaDateTime): Future[List[ScheduledFlight]] = {
-    Logger.debug(s"Requesting flights by route for ${airline.icao} btwn ${destination.icao} and ${origin.icao} on ${departureDate.toLocalDate.toString}")
+    Logger.debug(s"FlightAware: Requesting flights by route for ${airline.icao} btwn ${destination.icao} and ${origin.icao} on ${departureDate.toLocalDate.toString}")
     val params = List[(String,String)](
       ("startDate", departureDate.getMillis.toString), // get epoch of 00:01 of depatureDate
       ("endDate", departureDate.getMillis.toString), // get epoch of 23:59 of departureDate
@@ -160,14 +169,12 @@ object FlightAware {
   }
 
   def airportInfo(airport: Airport): Future[AirportInfo] = {
-    Logger.debug(s"Requesting airport info for ${airport.icao}")
+    Logger.debug(s"FlightAware: Requesting airport info for ${airport.icao}")
     val params = List(("airportCode", airport.icao))
 
     wsAuth(endpoint + "AirportInfo")
     .withQueryString(params:_*)
     .get.map { response =>
-      Logger.debug(response.body)
-
       val update = (__).json.update(
         addMongoId andThen
         icaoTransformer(airport.icao) andThen
@@ -185,7 +192,7 @@ object FlightAware {
   }
 
   def airlineInfo(airline: Airline): Future[AirlineInfo] = {
-    Logger.debug(s"Requesting airline info for ${airline.icao}")
+    Logger.debug(s"FlightAware: Requesting airline info for ${airline.icao}")
     val params = List(("airlineCode", airline.icao))
 
     wsAuth(endpoint + "AirlineInfo")
@@ -199,8 +206,6 @@ object FlightAware {
         addCreationDate
       )
 
-      Logger.debug("Transformed: " + (response.json \ "AirlineInfoResult").transform(update).get.toString)
-
       (response.json \ "AirlineInfoResult").transform(update) fold (
         error => throw new Exception(error.mkString("\n")),
         success => success.as[AirlineInfo]
@@ -210,6 +215,101 @@ object FlightAware {
       case t:Throwable => Future.failed(t)
     }
   }
+
+  def lastTrack(flight: Flight): Future[Seq[FlightPoint]] = {
+    // Returns data for flights <24 hours ago
+    Logger.info(s"FlightAware: Requsting last track for flight ${flight.ident}")
+
+    wsAuth(endpoint + "GetLastTrack")
+    .withQueryString("ident" -> flight.ident)
+    .get.map { response =>
+      val data = response.json \ "GetLastTrackResult"
+
+      val addFields = (__).json.update(
+        latLngToGeoPoint andThen
+        addMongoId andThen
+        addFaFlightId(flight.faFlightId) andThen
+        addCreationDate andThen
+        addNotPlanned
+      )
+
+      val points = for {
+        array <- (data \ "data").transform(readJsArrayMap(addFields))
+        points <- array.validate[Seq[FlightPoint]](validateJsArrayMap[FlightPoint](FlightPoint.faFlightPointReads))
+      } yield points 
+      
+      points fold (
+        error => throw new Exception(error.mkString("\n")),
+        success => success
+      )
+    }
+  }
+
+  def historicTrack(flight: Flight): Future[Seq[FlightPoint]] = {
+    // Returns data for flights >24 hours ago
+    Logger.info(s"FlightAware: Requsting historical track for flight ${flight.ident}")
+
+    wsAuth(endpoint + "GetHistoricalTrack")
+    .withQueryString("faFlightID" -> flight.faFlightId)
+    .get.map { response =>
+      //Logger.debug(response.body.toString)
+
+      val data = response.json \ "GetHistoricalTrackResult"
+
+      val addFields = (__).json.update(
+        latLngToGeoPoint andThen
+        addMongoId andThen
+        addFaFlightId(flight.faFlightId) andThen
+        addNotPlanned andThen
+        addCreationDate
+      )
+
+      //Logger.debug((data \ "data").transform(readJsArrayMap(addFields)).toString)
+
+      val points = for {
+        array <- (data \ "data").transform(readJsArrayMap(addFields))
+        points <- array.validate[Seq[FlightPoint]](validateJsArrayMap[FlightPoint](FlightPoint.faFlightPointReads))
+      } yield points 
+
+      //Logger.debug(points.toString)
+      
+      points fold (
+        error => throw new Exception(error.mkString("\n")),
+        success => success
+      )
+    }
+  }
+
+  def plannedRoute(flight: Flight): Future[Seq[FlightPoint]] = {
+    // Returns planned flight route
+    Logger.info(s"FlightAware: Requesting planned flight route for ${flight.ident}")
+
+    wsAuth(endpoint + "DecodeFlightRoute")
+    .withQueryString("faFlightID" -> flight.faFlightId)
+    .get.map { response =>
+      val data = response.json \ "DecodeFlightRouteResult"
+  
+      val addFields = (__).json.update(
+        latLngToGeoPoint andThen
+        addMongoId andThen
+        addFaFlightId(flight.faFlightId) andThen
+        addIsPlanned andThen
+        addCreationDate
+      )
+
+      val points = for {
+        array <- (data \ "data").transform(readJsArrayMap(addFields))
+        points <- array.validate[Seq[FlightPoint]](validateJsArrayMap[FlightPoint](FlightPoint.faFlightPointReads))
+      } yield points 
+      
+      points fold (
+        error => throw new Exception(error.mkString("\n")),
+        success => success
+      )
+    }
+  }
+
+
 
   def wsAuth(url: String): WS.WSRequestHolder = {
     WS.url(url).withAuth("ryantanner", "96507582af80a489d35bac3761f91052a2ebc1d1", AuthScheme.BASIC)

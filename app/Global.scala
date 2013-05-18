@@ -65,6 +65,13 @@ object Global extends GlobalSettings {
 
     Flight.flightsColl.indexesManager.ensure(
       Index(List("faFlightId" -> IndexType.Ascending), unique = true))
+
+    FlightPoint.points.indexesManager.ensure(
+      Index(List("faFlightId" -> IndexType.Ascending,
+                 "timestamp"  -> IndexType.Descending,
+                 "planned"    -> IndexType.Ascending),
+            unique = true)
+    )
   }
   
 }
