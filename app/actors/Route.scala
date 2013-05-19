@@ -3,6 +3,7 @@ package actors
 import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
+import akka.event.Logging 
  
 import scala.concurrent.duration._
 import scala.concurrent.Future
@@ -16,19 +17,22 @@ import play.api.libs.concurrent.Akka
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.Play.current
 
-import play.Logger
-
 import org.joda.time.DateTime
+
+import play.api.Logger
 
 import models._
 
 class Routes extends Actor {
+
+  val log = Logging(context.system, this)
+
   var connected = Map.empty[Flight, (Option[DateTime], Concurrent.Channel[FlightPoint])]
  
   def receive = {
     case Track(flight) => {
       val e = Concurrent.unicast[FlightPoint] {c =>
-        Logger.info("Start")
+        log.info("Start")
         connected = connected + (flight -> (None, c))
       }
       sender ! Connected(e)
@@ -46,7 +50,7 @@ class Routes extends Actor {
           case None =>
             points.foreach(channel.push)
         }
-        connected - flight + (flight -> (points.last.timestamp, channel))
+        connected = connected - flight + (flight -> (points.last.timestamp, channel))
       }
     }
   }

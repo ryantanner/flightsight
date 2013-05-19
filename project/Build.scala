@@ -27,7 +27,9 @@ object ApplicationBuild extends Build {
     templatesImport ++= Seq(
       "org.joda.time.{DateTime => JodaDateTime}",
       "org.joda.time.format.DateTimeFormat"
-    )
+    ),
+    coffeescriptOptions := Seq("bare"),
+    requireJs += "application.js"
   )
 
 }

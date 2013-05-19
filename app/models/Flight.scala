@@ -202,7 +202,7 @@ object Flight {
     // updates periodically
     Logger.debug(s"Retrieving live route for ${flight.ident}")
 
-    Akka.system.scheduler.schedule(10 seconds, 1 minute) {
+    Akka.system.scheduler.schedule(10 seconds, 1 minutes) {
       FlightAware.lastTrack(flight) onSuccess { case points: Seq[FlightPoint] =>
         routes ! Route(flight, points)
       }

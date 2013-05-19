@@ -18,3 +18,9 @@ body.img-bg {
 .over-img {
   background-color: rgba(225,225,225,0.5);
 }
+
+#map {
+  margin: 0;
+  padding: 0;
+  height: 500px;
+}

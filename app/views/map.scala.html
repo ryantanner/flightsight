@@ -24,14 +24,20 @@
 
     <div class="row">
       <div class="span12">
-        <div id="#count">0</div>
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="span12">
+        <div id="count">0</div>
       </div>
     </div>
 
   </div>
 
   <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA58OF2AGFfvdnQaitbiuJmYv_femmDa-g&sensor=false"></script>
-  <script type="text/javascript" src='@routes.Assets.at("javascripts/routeMap.js")'></script>
+  @helper.requireJs(core = routes.Assets.at("javascripts/require.js").url, module = routes.Assets.at("javascripts/application").url)
 
 
 }
