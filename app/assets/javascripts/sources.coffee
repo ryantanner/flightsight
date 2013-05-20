@@ -1,14 +1,17 @@
 define ['sources'], () ->
   init = ($, M) ->
-    evtSource = new EventSource window.location + "route"
+    routeSource = new EventSource window.location + "source"
 
-    pointCount = 0
-
-    evtSource.addEventListener "point", (point) =>
-      pointCount++
-      $("#count").text pointCount
+    routeSource.addEventListener "routePoint", (point) =>
+      M.points.push point
 
       M.addPointToPath $.parseJSON point.data
       true
+
+    routeSource.addEventListener "interestPoint", (poi) =>
+
+    routeSource.onmessage = (e) ->
+      console.log e
+
 
   init

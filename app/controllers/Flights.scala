@@ -12,13 +12,18 @@ import play.api.libs.Comet.CometMessage
 import play.api.libs.EventSource
 
 import play.api.Logger
+import play.api.Play.current
 
 import scala.concurrent._
+import play.api.libs.concurrent.Akka
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
 import scala.concurrent.Future
+import akka.util.Timeout
+import akka.actor.Props
+import akka.pattern.ask
 
 // Reactive Mongo imports
 import reactivemongo.api._
@@ -32,6 +37,7 @@ import org.joda.time.{DateTime => JodaDateTime}
 
 import models._
 import models.transformers._
+import actors._
 
 object Flights extends Controller {
 
@@ -44,6 +50,12 @@ object Flights extends Controller {
     ) 
   )
 
+  /* Actors */
+  val eventSource = Akka.system.actorOf(Props[EventSource])
+  val routeStream = Akka.system.actorOf(Props(new Routes(eventSource)))
+  val pointStream = Akka.system.actorOf(Props(new Points(eventSource)))
+  implicit val timeout = Timeout(1 second)
+  
   /* Controller Actions */
   def handleFlightForm = Action { implicit request =>
     flightForm.bindFromRequest.fold(
@@ -109,6 +121,7 @@ object Flights extends Controller {
     }
   }
 
+  /*
   def flightRoute(airlineCode: String, originCode: String, destinationCode: String, flightNumber: Int, date: JodaDateTime) = Action {
     Async {
       for {
@@ -130,17 +143,47 @@ object Flights extends Controller {
       } getOrElse NotFound
     }
   }
+  */
 
-  private def toJson: Enumeratee[FlightPoint, JsValue] = Enumeratee.map[FlightPoint] {
-    flightPoint => Json.toJson(flightPoint)
+  def source(airlineCode: String, originCode: String, destinationCode: String, flightNumber: Int, date: JodaDateTime) = Action {
+    Async {
+      for {
+        airline         <- Airline.findByICAO(airlineCode)
+        origin          <- Airport.findByICAO(originCode)
+        destination     <- Airport.findByICAO(destinationCode)
+        airlineInfo     <- airline.get.withInfo
+        originInfo      <- origin.get.withInfo
+        destinationInfo <- destination.get.withInfo
+        flight          <- Flight.findByNumberOriginDestination(airline.get, flightNumber, origin.get, destination.get, date)
+        if airline.isDefined && origin.isDefined && destination.isDefined
+        source          <- (eventSource ? Track(flight.get))
+        if airline.isDefined
+      } yield source match { case Connected(stream) =>
+
+        Flight.route(flight.get)(routeStream)
+        //points ! Track(flight)
+
+        Ok.stream((stream &> EventSource[JsValue]()(
+          encoder = CometMessage.jsonMessages,
+          eventNameExtractor = pointNameExtractor,
+          eventIdExtractor = pointIdExtractor
+        )) >>> Enumerator.eof).as("text/event-stream")
+      } 
+    }
   }
 
+
+
+  /*
   private def toEventSource: Enumeratee[JsValue, String] = Enumeratee.map[JsValue] {
-    js => "event: point\n\ndata: " + js.toString + "\n\n"
+    js => "event: " + (js \ "eventType") + "\n\n" + js.toString + "\n\n"
+    //js => "event: point\n\ndata: " + js.toString + "\n\n"
   }
+  */
 
-  val pointNameExtractor = EventSource.EventNameExtractor[JsValue]( (_) => Some("point"))
-  val pointIdExtractor = EventSource.EventIdExtractor[JsValue]( (flightPoint) => Some(flightPoint \ "id" \ "$oid" toString))
+  val pointNameExtractor = EventSource.EventNameExtractor[JsValue]( (__) => Some((__ \ "eventType").as[String]))
+  
+  val pointIdExtractor = EventSource.EventIdExtractor[JsValue]( (event) => Some(event \ "id" \ "$oid" toString))
 
 
 }

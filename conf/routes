@@ -13,7 +13,9 @@ GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:date    cont
 
 GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:flightNumber/:date/ controllers.Flights.map(airline: String, orig: String, dest: String, flightNumber: Int, date: JodaDateTime)
 
-GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:flightNumber/:date/route controllers.Flights.flightRoute(airline: String, orig: String, dest: String, flightNumber: Int, date: JodaDateTime)
+#GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:flightNumber/:date/route controllers.Flights.flightRoute(airline: String, orig: String, dest: String, flightNumber: Int, date: JodaDateTime)
+
+GET     /flight/$airline<[A-Z]{3}>/$orig<[A-Z]{4}>/$dest<[A-Z]{4}>/:flightNumber/:date/source controllers.Flights.source(airline: String, orig: String, dest: String, flightNumber: Int, date: JodaDateTime)
 
 GET     /airlines                                       controllers.Airlines.listAll
 

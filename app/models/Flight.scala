@@ -26,6 +26,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import akka.actor.Props
 import akka.pattern.ask
 import akka.util.Timeout
+import akka.actor.ActorRef
 
 import reactivemongo.api._
 import reactivemongo.bson._
@@ -97,6 +98,8 @@ object Flight {
   implicit val flightReads = Json.reads[Flight]
   implicit val flightWrites = Json.writes[Flight]
 
+  implicit val timeout = Timeout(1 second)
+
   /* JSON Transformers */
   val faFlightReads: Reads[Flight] = (
     (__ \ "id").read[BSONObjectID] ~
@@ -122,8 +125,10 @@ object Flight {
     (__ \ "creationDate").read[JodaDateTime]
   )(Flight.apply _)
 
+  /*
   lazy val routes = Akka.system.actorOf(Props[Routes])
   implicit val timeout = Timeout(1 second)
+  */
 
   def all: Future[List[Flight]] = {
     flightsColl.find(Json.obj()).cursor[Flight].toList
@@ -178,6 +183,18 @@ object Flight {
     }}
   }
 
+  def route(flight: Flight)(implicit routes: ActorRef): Enumerator[FlightPoint] = {
+    Logger.debug(s"Determining route type for ${flight.faFlightId}")
+    
+    (flight.actualDepartureTime, flight.actualArrivalTime) match {
+      case (None, None) => Enumerator.flatten(retrievePlannedRoute(flight))
+      case (Some(departureTime), None) => Enumerator.flatten(retrieveLiveRoute(flight))
+      case (Some(departureTime), Some(arrivalTime)) => Enumerator.flatten(retrievePastRoute(flight))
+      case (None, Some(arrivalTime)) => Enumerator.eof // tear in fabric of space in time, bail out
+    }
+  }
+
+  /*
   def route(faFlightId: String): Future[Option[Enumerator[FlightPoint]]] = {
     Logger.debug(s"Determining route type for $faFlightId")
     Flight.findByFaFlightId(faFlightId) map { maybeFlight => maybeFlight map { flight =>
@@ -189,6 +206,7 @@ object Flight {
       }
     }}
   }
+  */
 
   def retrievePlannedRoute(flight: Flight): Future[Enumerator[FlightPoint]] = {
     Logger.debug(s"Retrieving planned route for ${flight.ident}")
@@ -197,20 +215,21 @@ object Flight {
     }
   }
 
-  def retrieveLiveRoute(flight: Flight): Future[Enumerator[FlightPoint]] = {
+  def retrieveLiveRoute(flight: Flight)(implicit routes: ActorRef): Future[Enumerator[FlightPoint]] = {
     // Get known live data, then hoist a callback to poll for new
     // updates periodically
     Logger.debug(s"Retrieving live route for ${flight.ident}")
 
-    Akka.system.scheduler.schedule(10 seconds, 1 minutes) {
+    Akka.system.scheduler.schedule(10 seconds, 10 minutes) {
       FlightAware.lastTrack(flight) onSuccess { case points: Seq[FlightPoint] =>
+        Logger.debug(s"found ${points.size} points")
         routes ! Route(flight, points)
       }
     }
     
     (routes ? Track(flight)) map {
-      case Connected(enumerator) =>
-        enumerator
+      case r:Ready[FlightPoint] =>
+        r.enumerator
     }
 
   }

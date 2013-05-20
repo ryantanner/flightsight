@@ -38,7 +38,7 @@ import DateTime._
 import transformers._
 
 case class POI(
-  id: Option[BSONObjectID],
+  id: BSONObjectID,
   featureId: Int,
   name: String,
   featureClass: String,
@@ -57,7 +57,10 @@ case class POI(
   elevationFT: Int,
   mapName: String,
   dateCreated: Option[JodaDateTime],
-  dateEdited: Option[JodaDateTime])
+  dateEdited: Option[JodaDateTime]) extends Event {
+  val eventId = id
+  val eventType = "interestPoint"
+}
 
 case class GeoPoint(
   coordinates: List[Double], // always [long, lat]
@@ -136,7 +139,7 @@ object POI {
       //Logger.debug(g)
 
       POI(
-        id = Some(BSONObjectID.generate),
+        id = BSONObjectID.generate,
         featureId = geo(0) toInt,
         name = geo(1),
         featureClass = geo(2),

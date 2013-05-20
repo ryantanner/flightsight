@@ -46,7 +46,10 @@ case class FlightPoint(
   timestamp: Option[JodaDateTime],
   updateType: Option[String],
   planned: Boolean,
-  creationDate: JodaDateTime)
+  creationDate: JodaDateTime) extends Event {
+  val eventId = id
+  val eventType = "flightPoint"
+}
 
 object FlightPoint {
 

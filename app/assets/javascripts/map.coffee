@@ -50,4 +50,6 @@ define ['map'], () ->
     path.push latlng
     M.map.setCenter latlng
 
+  M.points = []
+
   return [$, M]
