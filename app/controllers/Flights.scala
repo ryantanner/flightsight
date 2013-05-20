@@ -167,19 +167,11 @@ object Flights extends Controller {
           encoder = CometMessage.jsonMessages,
           eventNameExtractor = pointNameExtractor,
           eventIdExtractor = pointIdExtractor
-        )) >>> Enumerator.eof).as("text/event-stream")
+        ))).as("text/event-stream")
+        //Ok.stream(stream &> toEventSource &> EventSource[String]()).as("text/event-stream")
       } 
     }
   }
-
-
-
-  /*
-  private def toEventSource: Enumeratee[JsValue, String] = Enumeratee.map[JsValue] {
-    js => "event: " + (js \ "eventType") + "\n\n" + js.toString + "\n\n"
-    //js => "event: point\n\ndata: " + js.toString + "\n\n"
-  }
-  */
 
   val pointNameExtractor = EventSource.EventNameExtractor[JsValue]( (__) => Some((__ \ "eventType").as[String]))
   

@@ -183,14 +183,14 @@ object Flight {
     }}
   }
 
-  def route(flight: Flight)(implicit routes: ActorRef): Enumerator[FlightPoint] = {
+  def route(flight: Flight)(routeStream: ActorRef) = {
     Logger.debug(s"Determining route type for ${flight.faFlightId}")
     
     (flight.actualDepartureTime, flight.actualArrivalTime) match {
-      case (None, None) => Enumerator.flatten(retrievePlannedRoute(flight))
-      case (Some(departureTime), None) => Enumerator.flatten(retrieveLiveRoute(flight))
-      case (Some(departureTime), Some(arrivalTime)) => Enumerator.flatten(retrievePastRoute(flight))
-      case (None, Some(arrivalTime)) => Enumerator.eof // tear in fabric of space in time, bail out
+      case (None, None) => retrievePlannedRoute(flight)
+      case (Some(departureTime), None) => retrieveLiveRoute(flight)(routeStream)
+      case (Some(departureTime), Some(arrivalTime)) => retrievePastRoute(flight)
+      //case (None, Some(arrivalTime)) => Enumerator.eof // tear in fabric of space in time, bail out
     }
   }
 
@@ -215,22 +215,25 @@ object Flight {
     }
   }
 
-  def retrieveLiveRoute(flight: Flight)(implicit routes: ActorRef): Future[Enumerator[FlightPoint]] = {
+  def retrieveLiveRoute(flight: Flight)(routeStream: ActorRef) = {
     // Get known live data, then hoist a callback to poll for new
     // updates periodically
     Logger.debug(s"Retrieving live route for ${flight.ident}")
 
-    Akka.system.scheduler.schedule(10 seconds, 10 minutes) {
+    Akka.system.scheduler.schedule(5 seconds, 1 minutes) {
       FlightAware.lastTrack(flight) onSuccess { case points: Seq[FlightPoint] =>
         Logger.debug(s"found ${points.size} points")
-        routes ! Route(flight, points)
+        routeStream ! Route(flight, points)
       }
     }
     
+    routeStream ! Track(flight)
+    /*
     (routes ? Track(flight)) map {
       case r:Ready[FlightPoint] =>
         r.enumerator
     }
+    */
 
   }
 
