@@ -24,7 +24,7 @@ import play.api.Logger
 
 import models._
 
-class Routes(source: ActorRef) extends Actor {
+class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
 
   val log = Logger
   //val log = Logging(context.system, this)
@@ -36,7 +36,7 @@ class Routes(source: ActorRef) extends Actor {
       log.info(s"Now tracking ${flight.ident}")
 
       val i = Iteratee.foreach[FlightPoint] { point =>
-        log.debug(s"pushing ${point.id}")
+        //log.debug(s"pushing ${point.id}")
         val jsPoint = Json.toJson(point)
 
         (for {
@@ -71,7 +71,7 @@ class Routes(source: ActorRef) extends Actor {
 
     case Route(flight, points) => {
       for((lastOpt, iteratee) <- connected.get(flight)) { 
-        log.debug(s"actor found ${points.size} points")
+        //log.debug(s"actor found ${points.size} points")
 
         val filter = Enumeratee.filter[FlightPoint]( (point) =>
           (for {
@@ -81,6 +81,13 @@ class Routes(source: ActorRef) extends Actor {
         )
 
         Enumerator(points:_*) &> filter apply iteratee
+
+        Enumerator(points:_*) &> Enumeratee.drop[FlightPoint](points.size - 2) &>
+                                 Enumeratee.map[FlightPoint] { point => point.location } |>>
+                                 Iteratee.foreach[GeoPoint] { geo =>
+                                   log.debug("asking for updated points of interest")
+                                   pointStream ! Update(flight, geo)
+                                 }
 
         connected = connected - flight + (flight -> (points.last.timestamp, iteratee))
         /*

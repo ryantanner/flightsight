@@ -34,7 +34,7 @@ class EventSource extends Actor {
   var connected = Map.empty[Flight, (Enumerator[JsValue], Concurrent.Channel[JsValue])]
 
   val loggingIteratee = Iteratee.foreach[JsValue] { js =>
-    log.debug(js.toString.take(10))
+    //log.debug(js.toString.take(10))
   }
 
   def receive = LoggingReceive {
@@ -58,7 +58,7 @@ class EventSource extends Actor {
     }
 
     case Stream(flight, value) => {
-      log.debug("starting stream")
+      //log.debug("starting stream")
       for ((_, channel) <- connected.get(flight)) {
         log.debug(s"streaming ${value.toString}")
         channel.push(value)

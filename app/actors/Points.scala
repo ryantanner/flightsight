@@ -25,36 +25,53 @@ import models._
 
 class Points(source: ActorRef) extends Actor {
 
-  val log = Logging(context.system, this)
+  val log = Logger
 
-  var connected = Map.empty[Flight, (Set[POI], Enumerator[POI])]
- 
+  var connected = Map.empty[Flight, (Set[POI], Iteratee[POI, Unit])]
+
   def receive = {
-    case _ => { } 
-    /*
     case Track(flight) => {
       log.info("Start")
-      val e = Enumerator[POI]()
-      connected = connected + (flight -> (Set[POI](), e))
-      sender ! Ready[POI](e)
-      source ! Stream(flight, e &> Json.toJson)
+
+      val i = Iteratee.foreach[POI] { poi =>
+        val jsPOI = Json.toJson(poi)
+
+        (for {
+          json <- jsPOI.transform(Event.addEventProperties(poi))
+        } yield json) fold (
+          error => throw new Exception(error.mkString("\n")),
+          js => source ! Stream(flight, js)
+        )
+      }
+
+      connected = connected + (flight -> (Set[POI](), i))
     }
  
     case Stop(flight) => {
-      for ((set, e) <- connected.get(flight)) {
-        e >>> Enumerator.eof[POI]
+      for ((set, i) <- connected.get(flight)) {
+        Enumerator.eof[POI] |>> i
       }
       connected = connected - flight
     }
  
-    case Push(flight, points) => {
-      for((set, e) <- connected.get(flight)) { 
-        e >>> Enumerator((set &~ points).toList:_*)
-        connected = connected - flight + (flight -> (set & points, e))
+    case POIs(flight, points) => {
+      log.debug(s"received ${points.size} for ${flight.ident}")
+      for((set, i) <- connected.get(flight)) { 
+        Enumerator((points &~ set).toList:_*) |>> i
+        connected = connected - flight + (flight -> (set & points, i))
       }
     }
-    */
+
+    case Update(flight, location) => {
+      log.debug(s"Received update for ${flight.ident}")
+      for ((set, i) <- connected.get(flight)) {
+        POI.featuresNear(location) map { case (concise, all) =>
+          self ! POIs(flight, all.toSet)
+        }
+      }
+    }
   }
 }
 
-case class Push(flight: Flight, points: Set[POI])
+case class POIs(flight: Flight, points: Set[POI])
+case class Update(flight: Flight, location: GeoPoint)

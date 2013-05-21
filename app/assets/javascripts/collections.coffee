@@ -4,18 +4,22 @@ define ['collections'], () ->
 
   class Collection
     constructor: () ->
+      this.coll = []
+      this._onPush = []
 
-    coll: []
+      ###
+    coll = []
 
-    _onPush: []
+    _onPush = []
+    ###
 
     push: (obj) ->
-      @coll.push(obj)
-      _.each @_onPush, (func) ->
+      this.coll.push(obj)
+      _.each this._onPush, (func) ->
         func(obj)
 
     addPushHandler: (func) ->
-      @_onPush.push func
+      this._onPush.push func
 
 
   FlightSight.Collection = Collection

@@ -52,8 +52,8 @@ object Flights extends Controller {
 
   /* Actors */
   val eventSource = Akka.system.actorOf(Props[EventSource])
-  val routeStream = Akka.system.actorOf(Props(new Routes(eventSource)))
   val pointStream = Akka.system.actorOf(Props(new Points(eventSource)))
+  val routeStream = Akka.system.actorOf(Props(new Routes(eventSource, pointStream)))
   implicit val timeout = Timeout(1 second)
   
   /* Controller Actions */
@@ -161,7 +161,7 @@ object Flights extends Controller {
       } yield source match { case Connected(stream) =>
 
         Flight.route(flight.get)(routeStream)
-        //points ! Track(flight)
+        pointStream ! Track(flight.get)
 
         Ok.stream((stream &> EventSource[JsValue]()(
           encoder = CometMessage.jsonMessages,

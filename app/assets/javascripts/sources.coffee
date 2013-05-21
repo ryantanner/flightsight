@@ -10,6 +10,7 @@ define ['sources'], () ->
 
     source.addEventListener "interestPoint", (poi) =>
       obj = $.parseJSON poi.data
+      console.log poi
       FlightSight.pointsOfInterest.push obj
 
   init

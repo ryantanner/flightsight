@@ -57,6 +57,20 @@ define ['map'], () ->
 
   FlightSight.pointsOfInterest = new FlightSight.Collection
 
+  FlightSight.pointsOfInterest.addPushHandler (poi) ->
+    latlng = FlightSight.Map.geopointToLatLng poi.loc
+    infoWindow = new google.maps.InfoWindow {
+      content: '<div id="content"><h1>' + poi.name + '</h1>'
+    }
+    marker = new google.maps.Marker {
+      position: latlng
+      map: FlightSight.Map.map
+      title: poi.name
+    }
+    google.maps.event.addListener marker, 'click', () ->
+      infoWindow.open FlightSight.Map.map, marker
+
+
   window.FlightSight = FlightSight
 
   return $

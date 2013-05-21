@@ -115,6 +115,7 @@ object POI {
       )
     )).cursor[POI].toList
 
+    // zips both future Lists into a tuple, does NOT zip list elements
     concise zip all
   }
 
