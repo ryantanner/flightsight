@@ -1,14 +1,15 @@
 define ['sources'], () ->
-  init = ($, M) ->
-    routeSource = new EventSource window.location + "source"
+  FlightSight = window.FlightSight
 
-    routeSource.addEventListener "flightPoint", (point) =>
-      M.points.push point
+  init = () ->
+    source = new EventSource window.location + "source"
 
-      M.addPointToPath $.parseJSON point.data
-      true
+    source.addEventListener "flightPoint", (point) =>
+      obj = $.parseJSON point.data
+      FlightSight.routePoints.push obj
 
-    routeSource.addEventListener "interestPoint", (poi) =>
-
+    source.addEventListener "interestPoint", (poi) =>
+      obj = $.parseJSON poi.data
+      FlightSight.pointsOfInterest.push obj
 
   init

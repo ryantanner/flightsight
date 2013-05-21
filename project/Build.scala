@@ -14,6 +14,7 @@ object ApplicationBuild extends Build {
     "org.webjars" % "webjars-play" % "2.1.0-1",
     "org.webjars" % "bootstrap" % "2.3.1",
     "org.webjars" % "jquery" % "1.9.1",
+    "org.webjars" % "underscorejs" % "1.4.4",
     "org.mindrot" % "jbcrypt" % "0.3m"
   )
 

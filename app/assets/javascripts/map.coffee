@@ -1,9 +1,11 @@
 define ['map'], () ->
   $ = jQuery
-  M = {}
-  $.fn.googleMap = (M) ->
+  FlightSight = window.FlightSight
+  FlightSight.Map ?= {}
+
+  $.fn.googleMap = () ->
     element = $(this).get(0)
-    zoomLevel = $(this).data('zoom') || 8
+    zoomLevel = $(this).data('zoom') || 15
 
     if $(this).data('size')
       [width, height] = $(this).data('size').split('x')
@@ -28,28 +30,33 @@ define ['map'], () ->
           center: latlng
           mapTypeId: google.maps.MapTypeId.SATELLITE
 
-        M.map = new google.maps.Map(element, mapOptions)
+        FlightSight.Map.map = new google.maps.Map(element, mapOptions)
 
-        M.polyOptions =
+        FlightSight.Map.polyOptions =
           strokeColor: "#f0f0f0"
           strokeOpacity: 1.0
           strokeWeight: 3
 
-        M.route = new google.maps.Polyline M.polyOptions
-        M.route.setMap M.map
+        FlightSight.Map.route = new google.maps.Polyline FlightSight.Map.polyOptions
+        FlightSight.Map.route.setMap FlightSight.Map.map
 
         $(element).show()
     this
 
-  M.geopointToLatLng = (geopoint) ->
+  FlightSight.Map.geopointToLatLng = (geopoint) ->
     new google.maps.LatLng(geopoint.coordinates[1], geopoint.coordinates[0])
 
-  M.addPointToPath = (flightpoint) ->
-    path = M.route.getPath()
-    latlng = M.geopointToLatLng flightpoint.location
-    path.push latlng
-    M.map.setCenter latlng
+  FlightSight.routePoints = new FlightSight.Collection
 
-  M.points = []
+  FlightSight.routePoints.addPushHandler (flightpoint) ->
+    latlng = FlightSight.Map.geopointToLatLng flightpoint.location
+    flightpoint.latlng = latlng
 
-  return [$, M]
+    FlightSight.Map.route.getPath().push latlng
+    FlightSight.Map.map.setCenter latlng
+
+  FlightSight.pointsOfInterest = new FlightSight.Collection
+
+  window.FlightSight = FlightSight
+
+  return $
