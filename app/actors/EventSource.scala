@@ -33,15 +33,30 @@ class EventSource extends Actor {
 
   var connected = Map.empty[Flight, (Enumerator[JsValue], Concurrent.Channel[JsValue])]
 
+  var sources = List.empty[ActorRef]
+
   val loggingIteratee = Iteratee.foreach[JsValue] { js =>
     //log.debug(js.toString.take(10))
   }
 
   def receive = LoggingReceive {
     case Track(flight) => {
-      val (e, c) = Concurrent.broadcast[JsValue] 
-      connected = connected + (flight -> (e, c))
-      sender ! Connected(e)
+      connected.get(flight) match {
+        case Some((e, c)) => sender ! Connected(e)
+        case None => {
+          val (e, c) = Concurrent.broadcast[JsValue] 
+
+          val (broadcastingEnumerator, broadcaster) =
+            Concurrent.broadcast(e, (b) => {
+              log.info(s"interest to zero on ${flight.ident}")
+              self ! Stop(flight)
+              b.close()
+            })
+
+          connected = connected + (flight -> (broadcastingEnumerator, c))
+          sender ! Connected(broadcastingEnumerator)
+        }
+      }
     }
 
     case Channel(flight) => {
@@ -51,18 +66,25 @@ class EventSource extends Actor {
     }
  
     case Stop(flight) => {
+      log.info(s"stopping sources for ${flight.ident}")
       for ((enumerator, channel) <- connected.get(flight)) {
         channel.eofAndEnd
       }
       connected = connected - flight
+
+      sources foreach { s => s ! Stop(flight) }
     }
 
     case Stream(flight, value) => {
       //log.debug("starting stream")
       for ((_, channel) <- connected.get(flight)) {
-        log.debug(s"streaming ${value.toString}")
+        //log.debug(s"streaming ${value.toString}")
         channel.push(value)
       }
+    }
+
+    case Register(actor) => {
+      sources = sources :+ actor
     }
   }
 
@@ -79,3 +101,4 @@ case class Track(flight: Flight)
 case class Stop(flight: Flight)
 case class Stream(flight: Flight, value: JsValue)
 case class Channel(flight: Flight)
+case class Register(actor: ActorRef)

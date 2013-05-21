@@ -5,7 +5,7 @@ define ['map'], () ->
 
   $.fn.googleMap = () ->
     element = $(this).get(0)
-    zoomLevel = $(this).data('zoom') || 15
+    zoomLevel = $(this).data('zoom') || 12
 
     if $(this).data('size')
       [width, height] = $(this).data('size').split('x')
@@ -68,6 +68,9 @@ define ['map'], () ->
       title: poi.name
     }
     google.maps.event.addListener marker, 'click', () ->
+      if FlightSight.Map.infoWindow?
+        FlightSight.Map.infoWindow.close()
+      FlightSight.Map.infoWindow = infoWindow
       infoWindow.open FlightSight.Map.map, marker
 
 

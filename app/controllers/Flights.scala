@@ -54,6 +54,10 @@ object Flights extends Controller {
   val eventSource = Akka.system.actorOf(Props[EventSource])
   val pointStream = Akka.system.actorOf(Props(new Points(eventSource)))
   val routeStream = Akka.system.actorOf(Props(new Routes(eventSource, pointStream)))
+
+  eventSource ! Register(pointStream)
+  eventSource ! Register(routeStream)
+
   implicit val timeout = Timeout(1 second)
   
   /* Controller Actions */
@@ -163,7 +167,7 @@ object Flights extends Controller {
         Flight.route(flight.get)(routeStream)
         pointStream ! Track(flight.get)
 
-        Ok.stream((stream &> EventSource[JsValue]()(
+        Ok.feed((stream &> EventSource[JsValue]()(
           encoder = CometMessage.jsonMessages,
           eventNameExtractor = pointNameExtractor,
           eventIdExtractor = pointIdExtractor

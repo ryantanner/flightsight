@@ -31,8 +31,10 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
 
   var connected = Map.empty[Flight, (Option[DateTime], Iteratee[FlightPoint, Unit])]
 
+  var retrievers = Map.empty[Flight, Cancellable]
+
   def receive = LoggingReceive {
-    case Track(flight) => {
+    case TrackFlight(flight, retriever) => {
       log.info(s"Now tracking ${flight.ident}")
 
       val i = Iteratee.foreach[FlightPoint] { point =>
@@ -47,6 +49,13 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
         )
       }
       connected = connected + (flight -> (None, i))      
+      retrievers = retrievers + (flight -> retriever)
+
+      context.system.scheduler.scheduleOnce(
+        10 minutes,
+        self,
+        Stop(flight)
+      )
 
       //source ! Channel(flight)
     }
@@ -63,10 +72,15 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
     */
  
     case Stop(flight) => {
+      log.info(s"stopping flight tracking for ${flight.ident}")
       for ((lastOpt, points) <- connected.get(flight)) {
         Enumerator.eof[FlightPoint] |>> points
       }
       connected = connected - flight
+      
+      for (retriever <- retrievers.get(flight)) {
+        retriever.cancel
+      }
     }
 
     case Route(flight, points) => {
@@ -107,3 +121,4 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
 }
 
 case class Route(flight: Flight, points: Seq[FlightPoint])
+case class TrackFlight(flight: Flight, retriever: Cancellable)

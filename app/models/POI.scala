@@ -100,7 +100,7 @@ object POI {
       "loc" -> Json.obj(
         "$near" -> Json.obj(
           "$geometry" -> point, 
-          "$maxDistance" -> 10000)
+          "$maxDistance" -> 50000)
       )
     )).cursor[POI].toList
 
@@ -111,7 +111,7 @@ object POI {
       "loc" -> Json.obj(
         "$near" -> Json.obj(
           "$geometry" -> point, 
-          "$maxDistance" -> 10000)
+          "$maxDistance" -> 50000)
       )
     )).cursor[POI].toList
 

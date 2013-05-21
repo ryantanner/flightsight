@@ -220,14 +220,14 @@ object Flight {
     // updates periodically
     Logger.debug(s"Retrieving live route for ${flight.ident}")
 
-    Akka.system.scheduler.schedule(5 seconds, 1 minutes) {
+    val retriever = Akka.system.scheduler.schedule(5 seconds, 1 minutes) {
       FlightAware.lastTrack(flight) onSuccess { case points: Seq[FlightPoint] =>
         Logger.debug(s"found ${points.size} points")
         routeStream ! Route(flight, points)
       }
     }
     
-    routeStream ! Track(flight)
+    routeStream ! TrackFlight(flight, retriever)
     /*
     (routes ? Track(flight)) map {
       case r:Ready[FlightPoint] =>
