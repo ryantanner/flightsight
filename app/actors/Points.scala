@@ -58,7 +58,7 @@ class Points(source: ActorRef) extends Actor {
       log.debug(s"received ${points.size} for ${flight.ident}")
       for((set, i) <- connected.get(flight)) { 
         Enumerator((points &~ set).toList:_*) |>> i
-        connected = connected - flight + (flight -> (set & points, i))
+        connected = connected - flight + (flight -> (set | points, i))
       }
     }
 
