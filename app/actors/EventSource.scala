@@ -35,10 +35,6 @@ class EventSource extends Actor {
 
   var sources = List.empty[ActorRef]
 
-  val loggingIteratee = Iteratee.foreach[JsValue] { js =>
-    //log.debug(js.toString.take(10))
-  }
-
   def receive = LoggingReceive {
     case Track(flight) => {
       connected.get(flight) match {
@@ -90,8 +86,10 @@ class EventSource extends Actor {
 
   //private def toJson(e: E): Writes = e => Event.writer(e)
 
+  /*
   private def stream(channel: Concurrent.Channel[JsValue]) = 
     Iteratee.foreach[JsValue](e => channel.push(e))
+    */
 
 }
 

@@ -34,29 +34,32 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
   var retrievers = Map.empty[Flight, Cancellable]
 
   def receive = LoggingReceive {
-    case TrackFlight(flight, retriever) => {
-      log.info(s"Now tracking ${flight.ident}")
+    case Track(flight) => {
+      if(!connected.isDefinedAt(flight)) {
+        log.info(s"Now tracking ${flight.ident}")
 
-      val i = Iteratee.foreach[FlightPoint] { point =>
-        //log.debug(s"pushing ${point.id}")
-        val jsPoint = Json.toJson(point)
+        Flight.route(flight)(self)
 
-        (for {
-          json <- jsPoint.transform(Event.addEventProperties(point))
-        } yield json) fold (
-          error => throw new Exception(error.mkString("\n")),
-          js => source ! Stream(flight, js)
+        val i = Iteratee.foreach[FlightPoint] { point =>
+          //log.debug(s"pushing ${point.id}")
+          val jsPoint = Json.toJson(point)
+
+          (for {
+            json <- jsPoint.transform(Event.addEventProperties(point))
+          } yield json) fold (
+            error => throw new Exception(error.mkString("\n")),
+            js => source ! Stream(flight, js)
+          )
+        }
+        connected = connected + (flight -> (None, i))      
+        //retrievers = retrievers + (flight -> retriever)
+
+        context.system.scheduler.scheduleOnce(
+          10 minutes,
+          self,
+          Stop(flight)
         )
       }
-      connected = connected + (flight -> (None, i))      
-      retrievers = retrievers + (flight -> retriever)
-
-      context.system.scheduler.scheduleOnce(
-        10 minutes,
-        self,
-        Stop(flight)
-      )
-
       //source ! Channel(flight)
     }
 
@@ -71,6 +74,10 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
     }
     */
  
+    case Tracking(flight, retriever) => {
+      retrievers = retrievers + (flight -> retriever)
+    }
+
     case Stop(flight) => {
       log.info(s"stopping flight tracking for ${flight.ident}")
       for ((lastOpt, points) <- connected.get(flight)) {
@@ -79,13 +86,14 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
       connected = connected - flight
       
       for (retriever <- retrievers.get(flight)) {
+        log.info("cancelling FlightAware retrieval")
         retriever.cancel
       }
     }
 
     case Route(flight, points) => {
       for((lastOpt, iteratee) <- connected.get(flight)) { 
-        //log.debug(s"actor found ${points.size} points")
+        log.debug(s"actor found ${points.size} points")
 
         val filter = Enumeratee.filter[FlightPoint]( (point) =>
           (for {
@@ -100,6 +108,7 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
                                  Enumeratee.map[FlightPoint] { point => point.location } |>>
                                  Iteratee.foreach[GeoPoint] { geo =>
                                    log.debug("asking for updated points of interest")
+
                                    pointStream ! Update(flight, geo)
                                  }
 
@@ -121,4 +130,4 @@ class Routes(source: ActorRef, pointStream: ActorRef) extends Actor {
 }
 
 case class Route(flight: Flight, points: Seq[FlightPoint])
-case class TrackFlight(flight: Flight, retriever: Cancellable)
+case class Tracking(flight: Flight, retriever: Cancellable)

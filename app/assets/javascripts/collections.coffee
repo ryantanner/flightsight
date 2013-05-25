@@ -21,5 +21,7 @@ define ['collections'], () ->
     addPushHandler: (func) ->
       this._onPush.push func
 
+    last: () ->
+      this.coll[this.coll.length - 1]
 
   FlightSight.Collection = Collection

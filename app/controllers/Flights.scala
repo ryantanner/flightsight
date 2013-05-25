@@ -155,16 +155,17 @@ object Flights extends Controller {
         airline         <- Airline.findByICAO(airlineCode)
         origin          <- Airport.findByICAO(originCode)
         destination     <- Airport.findByICAO(destinationCode)
+        if airline.isDefined && origin.isDefined && destination.isDefined
         airlineInfo     <- airline.get.withInfo
         originInfo      <- origin.get.withInfo
         destinationInfo <- destination.get.withInfo
         flight          <- Flight.findByNumberOriginDestination(airline.get, flightNumber, origin.get, destination.get, date)
-        if airline.isDefined && origin.isDefined && destination.isDefined
         source          <- (eventSource ? Track(flight.get))
         if airline.isDefined
       } yield source match { case Connected(stream) =>
 
-        Flight.route(flight.get)(routeStream)
+        //Flight.route(flight.get)(routeStream)
+        routeStream ! Track(flight.get)
         pointStream ! Track(flight.get)
 
         Ok.feed((stream &> EventSource[JsValue]()(

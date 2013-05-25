@@ -14,7 +14,8 @@ define ['map'], () ->
     wrapperElem = $(this).wrap('<div class="map-wrap"/>').css({background:'#fff'})
     $(this).hide()
 
-    geocoder = new google.maps.Geocoder
+    FlightSight.Map.geocoder = new google.maps.Geocoder
+    geocoder = FlightSight.Map.geocoder
 
     geocoderParams =
       address: $(this).data('address') || "113 E Pecan St, San Antonio, 78205"
@@ -73,6 +74,19 @@ define ['map'], () ->
       FlightSight.Map.infoWindow = infoWindow
       infoWindow.open FlightSight.Map.map, marker
 
+  FlightSight.Map.statusUpdateFunc = () ->
+    lastPoint = FlightSight.routePoints.last()
+    $('#altitude').text lastPoint['altitude']
+    $('#groundspeed').text lastPoint['groundspeed']
+    latlng = FlightSight.Map.geopointToLatLng lastPoint['location']
+
+    FlightSight.Map.geocoder.geocode 'latLng' : latlng, (res, status) ->
+      if (status == google.maps.GeocoderStatus.OK)
+        if (res[1])
+          $('#currentLocation').text(res[1].formatted_address)
+
+
+  FlightSight.Map.statsUpdateInterval = window.setInterval FlightSight.Map.statusUpdateFunc, 1000
 
   window.FlightSight = FlightSight
 
