@@ -54,11 +54,13 @@ class Routes(source: ActorRef) extends Actor {
         connected = connected + (flight -> (None, i))      
         //retrievers = retrievers + (flight -> retriever)
 
+        /*
         context.system.scheduler.scheduleOnce(
           10 minutes,
           self,
           Stop(flight)
         )
+        */
       }
       //source ! Channel(flight)
     }

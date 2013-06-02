@@ -80,6 +80,7 @@ class EventSource extends Actor {
     }
 
     case Register(actor) => {
+      log.info(s"Registering ${actor.path.toString}")
       sources = sources :+ actor
     }
   }

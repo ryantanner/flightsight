@@ -25,8 +25,8 @@ define ['map'], () ->
         latlng = results[0].geometry.location
 
         mapOptions =
-          mapTypeControl: false
-          overviewMapControl: false
+          mapTypeControl: true
+          overviewMapControl: true
           zoom: zoomLevel
           center: latlng
           mapTypeId: google.maps.MapTypeId.SATELLITE
@@ -93,6 +93,18 @@ define ['map'], () ->
         if (status == google.maps.GeocoderStatus.OK)
           if (res[1])
             $('#currentLocation').text(res[1].formatted_address)
+
+      markerImage =
+        url: '/assets/images/plane-icon.png',
+        size: new google.maps.Size(128, 128),
+        origin: new google.maps.Point(0, 0),
+        anchor: new google.maps.Point(64, 64)
+
+      flightMarker = new google.maps.Marker {
+        position: latlng
+        map: FlightSight.Map.map
+        icon: markerImage
+      }
 
   FlightSight.Map.statsUpdateInterval = window.setInterval FlightSight.Map.statusUpdateFunc, 1000
 

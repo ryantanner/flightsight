@@ -262,12 +262,11 @@ object Flight {
 
       if(reload || points.isEmpty) {
         Logger.debug(s"Reloading points for ${flight.ident}")
-        val newPoints = FlightAware.historicTrack(flight) map { track =>
+        FlightAware.historicTrack(flight) map { track =>
           track foreach FlightPoint.insert
           routeStream ! Route(flight, track)
           //Enumerator.enumerate(track)
         }
-        newPoints
       }
       else routeStream ! Route(flight, points)
       //else Future.successful(Enumerator.enumerate(points))
