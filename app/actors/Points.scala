@@ -62,11 +62,15 @@ class Points(source: ActorRef) extends Actor {
       }
     }
 
-    case Update(flight, location) => {
-      log.debug(s"Received update for ${flight.ident}")
+    case Update(flight, ne, sw) => {
+      log.debug(s"Received updated bounds for ${flight.ident}")
       for ((set, i) <- connected.get(flight)) {
-        POI.featuresNear(location) map { case (concise, all) =>
-          self ! POIs(flight, all.toSet)
+        POI.featuresWithin(ne, sw) map { case (concise, all) =>
+          log.debug(s"Found ${all.length} points")
+          if(concise.isEmpty)
+            self ! POIs(flight, all.toSet)
+          else
+            self ! POIs(flight, concise.toSet)
         }
       }
     }
@@ -74,4 +78,5 @@ class Points(source: ActorRef) extends Actor {
 }
 
 case class POIs(flight: Flight, points: Set[POI])
-case class Update(flight: Flight, location: GeoPoint)
+case class Update(flight: Flight, ne: GeoPoint, sw: GeoPoint)
+

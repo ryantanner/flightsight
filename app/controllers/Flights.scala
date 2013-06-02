@@ -53,7 +53,7 @@ object Flights extends Controller {
   /* Actors */
   val eventSource = Akka.system.actorOf(Props[EventSource])
   val pointStream = Akka.system.actorOf(Props(new Points(eventSource)))
-  val routeStream = Akka.system.actorOf(Props(new Routes(eventSource, pointStream)))
+  val routeStream = Akka.system.actorOf(Props(new Routes(eventSource)))
 
   eventSource ! Register(pointStream)
   eventSource ! Register(routeStream)
@@ -181,6 +181,36 @@ object Flights extends Controller {
   val pointNameExtractor = EventSource.EventNameExtractor[JsValue]( (__) => Some((__ \ "eventType").as[String]))
   
   val pointIdExtractor = EventSource.EventIdExtractor[JsValue]( (event) => Some(event \ "id" \ "$oid" toString))
+
+  def updateBounds(airlineCode: String, originCode: String, destinationCode: String, flightNumber: Int, date: JodaDateTime) = Action(parse.json) { request =>
+    Async {
+      for {
+        airline         <- Airline.findByICAO(airlineCode)
+        origin          <- Airport.findByICAO(originCode)
+        destination     <- Airport.findByICAO(destinationCode)
+        if airline.isDefined && origin.isDefined && destination.isDefined
+        airlineInfo     <- airline.get.withInfo
+        originInfo      <- origin.get.withInfo
+        destinationInfo <- destination.get.withInfo
+        maybeFlight     <- Flight.findByNumberOriginDestination(airline.get, flightNumber, origin.get, destination.get, date)
+      } yield maybeFlight match {
+          case Some(flight) =>
+            val bounds = for {
+              bounds <- request.body.validate[Seq[GeoPoint]](validateJsArrayMap[GeoPoint](POI.geoPointFormat)) 
+            } yield bounds
+            
+            bounds fold (
+              error => BadRequest("cannot parse json"),
+              success => {
+                pointStream ! Update(flight, success.head, success.last)
+                Ok("updated bounds")
+              }
+            )
+          case None => NotFound
+      }
+    }
+  }
+
 
 
 }

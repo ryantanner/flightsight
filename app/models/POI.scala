@@ -69,6 +69,10 @@ case class GeoPoint(
 
   def this(long: Double, lat: Double) = this(List(long, lat))
 
+  def lng: Double = coordinates.head
+
+  def lat: Double = coordinates.last
+
 }
 
 object GeoPoint {
@@ -116,6 +120,39 @@ object POI {
     )).cursor[POI].toList
 
     // zips both future Lists into a tuple, does NOT zip list elements
+    concise zip all
+  }
+
+  def featuresWithin(ne: GeoPoint, sw: GeoPoint): Future[(List[POI], List[POI])] = {
+    val concise = concisePois.find(Json.obj(
+      "loc" -> Json.obj(
+        "$geoWithin" -> Json.obj(
+          "$geometry" -> Json.obj(
+            "type" -> "Polygon",
+            "coordinates" -> Json.arr(Json.arr(
+              ne.coordinates, GeoPoint.latlng(sw.lng, ne.lat).coordinates, sw.coordinates, GeoPoint.latlng(ne.lng, sw.lat).coordinates, ne.coordinates
+            ))
+          )
+        )
+      )
+    )).cursor[POI].toList
+
+    val all = pois.find(Json.obj(
+      "featureClass" -> Json.obj(
+        "$in" -> features
+      ),
+      "loc" -> Json.obj(
+        "$geoWithin" -> Json.obj(
+          "$geometry" -> Json.obj(
+            "type" -> "Polygon",
+            "coordinates" -> Json.arr(Json.arr(
+              ne.coordinates, GeoPoint.latlng(sw.lng, ne.lat).coordinates, sw.coordinates, GeoPoint.latlng(ne.lng, sw.lat).coordinates, ne.coordinates
+            ))
+          )
+        )
+      )
+    )).cursor[POI].toList
+
     concise zip all
   }
 

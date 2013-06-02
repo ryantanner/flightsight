@@ -33,6 +33,8 @@ define ['map'], () ->
 
         FlightSight.Map.map = new google.maps.Map(element, mapOptions)
 
+        FlightSight.Map.lastBounds = FlightSight.Map.map.getBounds()
+
         FlightSight.Map.polyOptions =
           strokeColor: "#f0f0f0"
           strokeOpacity: 1.0
@@ -46,6 +48,12 @@ define ['map'], () ->
 
   FlightSight.Map.geopointToLatLng = (geopoint) ->
     new google.maps.LatLng(geopoint.coordinates[1], geopoint.coordinates[0])
+
+  FlightSight.Map.latLngToGeoPoint = (latLng) ->
+    {
+      type: "Point",
+      "coordinates": [ latLng.lng(), latLng.lat() ]
+    }
 
   FlightSight.routePoints = new FlightSight.Collection
 
@@ -76,17 +84,40 @@ define ['map'], () ->
 
   FlightSight.Map.statusUpdateFunc = () ->
     lastPoint = FlightSight.routePoints.last()
-    $('#altitude').text lastPoint['altitude']
-    $('#groundspeed').text lastPoint['groundspeed']
-    latlng = FlightSight.Map.geopointToLatLng lastPoint['location']
+    if (lastPoint?)
+      $('#altitude').text lastPoint['altitude']
+      $('#groundspeed').text lastPoint['groundspeed']
+      latlng = FlightSight.Map.geopointToLatLng lastPoint['location']
 
-    FlightSight.Map.geocoder.geocode 'latLng' : latlng, (res, status) ->
-      if (status == google.maps.GeocoderStatus.OK)
-        if (res[1])
-          $('#currentLocation').text(res[1].formatted_address)
-
+      FlightSight.Map.geocoder.geocode 'latLng' : latlng, (res, status) ->
+        if (status == google.maps.GeocoderStatus.OK)
+          if (res[1])
+            $('#currentLocation').text(res[1].formatted_address)
 
   FlightSight.Map.statsUpdateInterval = window.setInterval FlightSight.Map.statusUpdateFunc, 1000
+
+  FlightSight.Map.boundsUpdateFunc = () ->
+    currentBounds = FlightSight.Map.map.getBounds()
+    if (FlightSight.Map.lastBounds?)
+      if (not currentBounds.equals FlightSight.Map.lastBounds)
+        FlightSight.Map.postBounds currentBounds
+    FlightSight.Map.lastBounds = currentBounds
+
+  FlightSight.Map.boundsUpdateInterval = window.setInterval FlightSight.Map.boundsUpdateFunc, 2000
+
+  FlightSight.Map.postBounds = (bounds) ->
+    $.ajax
+      type: "POST",
+      url: window.location.pathname + "bounds",
+      dataType: "application/json",
+      contentType: "application/json",
+      data: JSON.stringify(
+        [
+          FlightSight.Map.latLngToGeoPoint(bounds.getNorthEast()),
+          FlightSight.Map.latLngToGeoPoint(bounds.getSouthWest())
+        ]
+      ),
+      success: (data) -> console.log(data)
 
   window.FlightSight = FlightSight
 
