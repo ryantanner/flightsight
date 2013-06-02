@@ -2,11 +2,16 @@
 
 @main("FlightSight")(imageBG = true) {
 
-  <div class="container jumbotron">
+  <div id="marketingJumbotron" class="container jumbotron">
 
-    <h1>FlightSight</h1>
+    <div class="caption span4">
+      <h1>FlightSight</h1>
+      <p>On a flight?  Bored?  Find out what's outside your window.  Enter your flight details to the right.</p>
+    </div>
 
-    @views.html.flightSelector(flightForm)
+    <div class="span4 offset3">
+      @views.html.flightSelector(flightForm)
+    </div>
 
   </div>
 
@@ -16,21 +21,23 @@
     <div class="row">
       <div class="span4">
         <img class="img-circle" data-src="holder.js/140x140">
-        <h2>Heading</h2>
-        <p>Donec sed odio dui. Etiam porta sem malesuada magna mollis euismod. Nullam id dolor id nibh ultricies vehicula ut id elit. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Praesent commodo cursus magna, vel scelerisque nisl consectetur et.</p>
-        <p><a class="btn" href="#">View details &raquo;</a></p>
+        <h2>America at 30,000 Feet</h2>
+        <p>The world outside your window in real time.  Receive live updates
+           on the points of interest below your flight as you criss-cross the
+           country.</p>
       </div><!-- /.span4 -->
       <div class="span4">
         <img class="img-circle" data-src="holder.js/140x140">
-        <h2>Heading</h2>
-        <p>Duis mollis, est non commodo luctus, nisi erat porttitor ligula, eget lacinia odio sem nec elit. Cras mattis consectetur purus sit amet fermentum. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
-        <p><a class="btn" href="#">View details &raquo;</a></p>
+        <h2>Pass the Time</h2>
+        <p>Ever wondered what that lake off to the right of the plane was? 
+           Wonder no more!  Find out exactly what you're flying over and never
+           be bored in-flight again.
       </div><!-- /.span4 -->
       <div class="span4">
         <img class="img-circle" data-src="holder.js/140x140">
-        <h2>Heading</h2>
-        <p>Donec sed odio dui. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
-        <p><a class="btn" href="#">View details &raquo;</a></p>
+        <h2>Be the Expert</h2>
+        <p>Impress your seatmates with intimate knowledge of the ground below.
+        Who knows, maybe it'll make you lucky.
       </div><!-- /.span4 -->
     </div><!-- /.row -->
 
