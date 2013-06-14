@@ -100,11 +100,16 @@ define ['map'], () ->
         origin: new google.maps.Point(0, 0),
         anchor: new google.maps.Point(64, 64)
 
+      if (FlightSight.Map.flightMarker?)
+        FlightSight.Map.flightMarker.setMap(null)
+
       flightMarker = new google.maps.Marker {
         position: latlng
         map: FlightSight.Map.map
         icon: markerImage
       }
+
+      FlightSight.Map.flightMarker
 
   FlightSight.Map.statsUpdateInterval = window.setInterval FlightSight.Map.statusUpdateFunc, 1000
 
